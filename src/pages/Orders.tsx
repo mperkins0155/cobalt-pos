@@ -1,23 +1,31 @@
-import { useState, useEffect } from 'react';
+// ============================================================
+// CloudPos — Orders Page
+// Phase 0D: Enhanced from cobalt-pos Orders.tsx + prototype OrderListPage
+// Data: OrderService.listOrders()
+// Last modified: V0.6.3.0 — see VERSION_LOG.md
+// ============================================================
+
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { OrderService } from '@/services/orders';
 import { formatCurrency } from '@/lib/calculations';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { ArrowLeft, Search, Filter } from 'lucide-react';
+import { SearchBar, FilterPills, EmptyState } from '@/components/pos';
+import { Plus, ClipboardList } from 'lucide-react';
 import type { Order, OrderStatus } from '@/types/database';
 
-const STATUS_COLORS: Record<OrderStatus, string> = {
-  open: 'bg-blue-100 text-blue-800',
-  pending: 'bg-yellow-100 text-yellow-800',
-  paid: 'bg-green-100 text-green-800',
-  voided: 'bg-gray-100 text-gray-800',
-  refunded: 'bg-red-100 text-red-800',
-  partially_refunded: 'bg-orange-100 text-orange-800',
-  failed: 'bg-red-100 text-red-800',
+/** Status display config */
+const STATUS_THEME: Record<string, { label: string; cls: string }> = {
+  open: { label: 'In Progress', cls: 'text-warning bg-warning-tint' },
+  pending: { label: 'Pending', cls: 'text-primary bg-primary-tint' },
+  paid: { label: 'Completed', cls: 'text-success bg-success-tint' },
+  voided: { label: 'Voided', cls: 'text-muted-foreground bg-muted' },
+  refunded: { label: 'Refunded', cls: 'text-destructive bg-destructive/10' },
+  partially_refunded: { label: 'Partial Refund', cls: 'text-destructive bg-destructive/10' },
+  failed: { label: 'Failed', cls: 'text-destructive bg-destructive/10' },
 };
 
 export default function Orders() {
@@ -25,7 +33,8 @@ export default function Orders() {
   const { organization } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<string | undefined>();
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     if (!organization) return;
@@ -33,8 +42,7 @@ export default function Orders() {
       try {
         const { orders } = await OrderService.listOrders({
           orgId: organization.id,
-          status: statusFilter,
-          limit: 100,
+          limit: 200,
         });
         setOrders(orders);
       } catch (err) {
@@ -44,66 +52,152 @@ export default function Orders() {
       }
     };
     load();
-  }, [organization, statusFilter]);
+  }, [organization]);
 
-  const statuses: (OrderStatus | 'all')[] = ['all', 'open', 'paid', 'refunded', 'voided'];
+  // Compute status counts for filter badges
+  const statusCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: orders.length };
+    for (const o of orders) {
+      counts[o.status] = (counts[o.status] || 0) + 1;
+    }
+    return counts;
+  }, [orders]);
+
+  // Filter by status + search
+  const filtered = useMemo(() => {
+    let result = orders;
+    if (statusFilter !== 'all') {
+      result = result.filter((o) => o.status === statusFilter);
+    }
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      result = result.filter(
+        (o) =>
+          o.order_number.toLowerCase().includes(q) ||
+          (o.customer_name || '').toLowerCase().includes(q)
+      );
+    }
+    return result;
+  }, [orders, statusFilter, search]);
+
+  // Filter pill config
+  const filterTabs = [
+    { key: 'all', label: 'All', count: statusCounts.all || 0 },
+    { key: 'open', label: 'In Progress', count: statusCounts.open || 0 },
+    { key: 'pending', label: 'Pending', count: statusCounts.pending || 0 },
+    { key: 'paid', label: 'Completed', count: statusCounts.paid || 0 },
+    { key: 'voided', label: 'Voided', count: statusCounts.voided || 0 },
+  ];
 
   return (
-    <div className="h-screen flex flex-col bg-background">
-      <header className="bg-primary text-primary-foreground px-4 py-3 flex items-center gap-3">
-        <Button variant="ghost" size="icon" className="text-primary-foreground" onClick={() => navigate('/pos')}>
-          <ArrowLeft className="h-5 w-5" />
+    <div className="flex-1 overflow-y-auto p-4 pos-tablet:p-5 pos-desktop:px-7 pos-desktop:py-6">
+      {/* Header row */}
+      <div className="flex justify-between items-center mb-4">
+        <div className="flex items-center gap-2">
+          <ClipboardList className="h-5 w-5 text-primary" />
+          <h2 className="text-lg font-bold text-foreground">Orders</h2>
+        </div>
+        <Button onClick={() => navigate('/pos')}>
+          <Plus className="h-4 w-4 mr-1.5" />
+          Create New Order
         </Button>
-        <h1 className="text-lg font-bold">Orders</h1>
-      </header>
-
-      <div className="p-3 border-b flex gap-1.5 overflow-x-auto">
-        {statuses.map(s => (
-          <Button
-            key={s}
-            variant={(s === 'all' && !statusFilter) || statusFilter === s ? 'default' : 'outline'}
-            size="sm"
-            className="text-xs shrink-0 capitalize"
-            onClick={() => setStatusFilter(s === 'all' ? undefined : s)}
-          >
-            {s}
-          </Button>
-        ))}
       </div>
 
-      <ScrollArea className="flex-1">
-        <div className="p-3 space-y-2">
-          {loading ? (
-            Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="h-20 rounded-lg bg-muted animate-pulse" />
-            ))
-          ) : orders.length === 0 ? (
-            <p className="text-center text-muted-foreground py-12 text-sm">No orders found</p>
-          ) : (
-            orders.map(order => (
-              <button
-                key={order.id}
-                className="w-full bg-card border rounded-lg p-3 text-left hover:border-primary transition-colors"
-                onClick={() => navigate(`/orders/${order.id}`)}
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span className="font-mono font-medium text-sm">#{order.order_number}</span>
-                    <Badge className={`ml-2 text-[10px] ${STATUS_COLORS[order.status]}`}>
-                      {order.status}
-                    </Badge>
-                  </div>
-                  <span className="font-semibold">{formatCurrency(order.total_amount)}</span>
-                </div>
-                <div className="flex items-center justify-between mt-1.5 text-xs text-muted-foreground">
-                  <span>{order.customer_name || 'Walk-in'}</span>
-                  <span>{new Date(order.created_at).toLocaleString()}</span>
-                </div>
-              </button>
-            ))
-          )}
+      {/* Search + filters */}
+      <div className="mb-4 space-y-3">
+        <SearchBar
+          value={search}
+          onChange={setSearch}
+          placeholder="Search Order ID or Customer Name"
+        />
+        <FilterPills
+          items={filterTabs}
+          active={statusFilter}
+          onChange={setStatusFilter}
+        />
+      </div>
+
+      {/* Order list */}
+      {loading ? (
+        <div className="space-y-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-[84px] rounded-lg" />
+          ))}
         </div>
-      </ScrollArea>
+      ) : filtered.length === 0 ? (
+        <EmptyState
+          icon={<ClipboardList className="h-10 w-10" />}
+          title="No orders found"
+          description={
+            search
+              ? `No results for "${search}"`
+              : 'Create a new order to get started.'
+          }
+        />
+      ) : (
+        <div className="space-y-2 pb-20 pos-tablet:pb-4">
+          {filtered.map((order) => (
+            <OrderRow
+              key={order.id}
+              order={order}
+              onClick={() => navigate(`/orders/${order.id}`)}
+            />
+          ))}
+        </div>
+      )}
     </div>
+  );
+}
+
+/* ── Order row card ── */
+
+function OrderRow({ order, onClick }: { order: Order; onClick: () => void }) {
+  const theme = STATUS_THEME[order.status] || STATUS_THEME.failed;
+  const customerName = order.customer_name || 'Walk-in';
+  const typeLabel =
+    order.order_type === 'dine_in'
+      ? 'Dine In'
+      : order.order_type === 'takeout'
+        ? 'Take Away'
+        : order.order_type;
+
+  return (
+    <button
+      onClick={onClick}
+      className="w-full text-left bg-card rounded-lg border border-border p-3.5 hover:shadow-pos transition-shadow"
+    >
+      <div className="flex items-center justify-between mb-1.5">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-bold text-primary">
+            #{order.order_number}
+          </span>
+          <Badge
+            variant="secondary"
+            className="text-[10px] px-1.5 py-0 font-medium"
+          >
+            {typeLabel}
+          </Badge>
+        </div>
+        <Badge className={`text-[10px] px-2 py-0.5 font-semibold border-0 ${theme.cls}`}>
+          {theme.label}
+        </Badge>
+      </div>
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-medium text-foreground truncate mr-3">
+          {customerName}
+        </span>
+        <span className="text-sm font-bold text-foreground shrink-0">
+          {formatCurrency(order.total_amount || 0)}
+        </span>
+      </div>
+      <div className="text-xs text-muted-foreground mt-1">
+        {new Date(order.created_at).toLocaleDateString(undefined, {
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        })}
+      </div>
+    </button>
   );
 }

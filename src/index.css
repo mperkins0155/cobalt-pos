@@ -2,100 +2,230 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ═══════════════════════════════════════════════════════════════
+   CloudPos Design Tokens
+   Source: cloudpos-dashboard.jsx (T_STATIC, T_LIGHT, T_DARK)
+   Mapped to shadcn CSS custom properties (HSL without wrapper)
+   ═══════════════════════════════════════════════════════════════ */
+
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* ── Surface ── */
+    --background: 228 24% 96%;         /* #F2F3F7 */
+    --foreground: 225 19% 13%;         /* #1A1D26 */
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;                 /* #FFFFFF */
+    --card-foreground: 225 19% 13%;    /* #1A1D26 */
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 225 19% 13%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    /* ── Brand ── */
+    --primary: 222 97% 63%;            /* #447DFC */
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    /* ── Neutral actions ── */
+    --secondary: 228 24% 96%;          /* #F2F3F7 — matches bg */
+    --secondary-foreground: 225 19% 13%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 228 24% 96%;              /* #F2F3F7 */
+    --muted-foreground: 229 11% 60%;   /* #8E92A4 */
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    /* ── Accent (blue tint) ── */
+    --accent: 222 100% 96%;            /* #EBF1FF */
+    --accent-foreground: 222 97% 63%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    /* ── Destructive ── */
+    --destructive: 3 100% 59%;         /* #FF3B30 */
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    /* ── Semantic: success + warning (POS-specific) ── */
+    --success: 135 59% 49%;            /* #34C759 */
+    --success-foreground: 0 0% 100%;
+    --warning: 37 91% 55%;             /* #F5A623 */
+    --warning-foreground: 0 0% 100%;
 
-    --radius: 0.5rem;
+    /* ── Tinted backgrounds (badges, alerts, soft highlights) ── */
+    --primary-tint: 222 100% 96%;      /* #EBF1FF */
+    --success-tint: 137 58% 94%;       /* #E8F9ED */
+    --warning-tint: 39 100% 94%;       /* #FFF4E0 */
+    --destructive-tint: 3 100% 96%;    /* #FFEBEA */
 
-    --sidebar-background: 0 0% 98%;
+    /* ── Chrome ── */
+    --border: 225 21% 93%;             /* #E8EAF0 */
+    --input: 225 21% 93%;
+    --ring: 222 97% 63%;               /* blue focus ring */
 
-    --sidebar-foreground: 240 5.3% 26.1%;
+    /* ── Extended text hierarchy ── */
+    --tertiary-foreground: 228 13% 73%;  /* #B0B4C3 — T_LIGHT.textTer */
 
-    --sidebar-primary: 240 5.9% 10%;
+    /* ── Interactive states ── */
+    --primary-hover: 222 64% 52%;      /* #3568D4 — T_STATIC.blueDark */
 
-    --sidebar-primary-foreground: 0 0% 98%;
+    /* ── Theme-aware shadows (auto-switch in dark mode) ── */
+    --shadow: 0 2px 12px rgba(26, 29, 38, 0.06);
+    --shadow-lg: 0 8px 32px rgba(26, 29, 38, 0.10);
 
-    --sidebar-accent: 240 4.8% 95.9%;
+    /* ── Chart palette (Phase 3 — Reports & Analytics) ── */
+    --chart-1: 222 97% 63%;           /* primary blue — #447DFC */
+    --chart-2: 135 59% 49%;           /* success green — #34C759 */
+    --chart-3: 37 91% 55%;            /* warning amber — #F5A623 */
+    --chart-4: 3 100% 59%;            /* destructive red — #FF3B30 */
+    --chart-5: 270 50% 55%;           /* purple accent — #9B59B6 */
 
-    --sidebar-accent-foreground: 240 5.9% 10%;
+    --radius: 0.75rem;                 /* 12px → lg=12, md=10, sm=8 */
 
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    /* ── Sidebar (white in light mode) ── */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 225 19% 13%;
+    --sidebar-primary: 222 97% 63%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 222 100% 96%;
+    --sidebar-accent-foreground: 222 97% 63%;
+    --sidebar-border: 225 21% 93%;
+    --sidebar-ring: 222 97% 63%;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    /* ── Surface ── */
+    --background: 223 21% 6%;          /* #0D0F14 */
+    --foreground: 225 21% 93%;         /* #E8EAF0 */
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    --card: 225 19% 13%;               /* #1A1D26 */
+    --card-foreground: 225 21% 93%;
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 225 19% 13%;
+    --popover-foreground: 225 21% 93%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    /* ── Brand (stays consistent) ── */
+    --primary: 222 97% 63%;            /* #447DFC */
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    /* ── Neutral actions ── */
+    --secondary: 227 14% 19%;          /* #2A2D38 */
+    --secondary-foreground: 225 21% 93%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 227 14% 19%;              /* #2A2D38 */
+    --muted-foreground: 229 11% 60%;   /* #8E92A4 */
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    /* ── Accent (deep blue tint) ── */
+    --accent: 222 45% 18%;             /* #1A2744 */
+    --accent-foreground: 222 97% 63%;
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    /* ── Destructive ── */
+    --destructive: 3 100% 59%;         /* #FF3B30 */
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
+    /* ── Semantic ── */
+    --success: 135 59% 49%;            /* #34C759 */
+    --success-foreground: 0 0% 100%;
+    --warning: 37 91% 55%;             /* #F5A623 */
+    --warning-foreground: 0 0% 100%;
+
+    /* ── Tinted backgrounds (dark variants) ── */
+    --primary-tint: 222 45% 18%;       /* #1A2744 */
+    --success-tint: 144 47% 11%;       /* #0F2A1A */
+    --warning-tint: 37 45% 11%;        /* #2A2010 */
+    --destructive-tint: 349 45% 11%;   /* #2A1015 */
+
+    /* ── Chrome ── */
+    --border: 227 14% 19%;             /* #2A2D38 */
+    --input: 227 14% 19%;
+    --ring: 222 97% 63%;
+
+    /* ── Extended text hierarchy ── */
+    --tertiary-foreground: 230 8% 35%;   /* #5A5E6E — T_DARK.textTer */
+
+    /* ── Interactive states ── */
+    --primary-hover: 222 64% 52%;      /* #3568D4 — same in dark */
+
+    /* ── Theme-aware shadows ── */
+    --shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+    --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.4);
+
+    /* ── Chart palette (muted for dark backgrounds) ── */
+    --chart-1: 222 97% 63%;
+    --chart-2: 135 59% 49%;
+    --chart-3: 37 91% 55%;
+    --chart-4: 3 100% 59%;
+    --chart-5: 270 50% 55%;
+
+    /* ── Sidebar (dark card surface) ── */
+    --sidebar-background: 225 19% 13%;
+    --sidebar-foreground: 225 21% 93%;
+    --sidebar-primary: 222 97% 63%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-accent: 222 45% 18%;
+    --sidebar-accent-foreground: 222 97% 63%;
+    --sidebar-border: 227 14% 19%;
+    --sidebar-ring: 222 97% 63%;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   Premium Inter Typography
+   - Antialiased rendering (sharper on macOS/iOS)
+   - Tabular numbers (dollar columns align)
+   - Alternate digit forms via ss01 (more distinctive)
+   - Tight heading tracking, loose small-text tracking
+   ═══════════════════════════════════════════════════════════════ */
 
 @layer base {
   * {
     @apply border-border;
   }
 
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: 'ss01', 'cv01';
+  }
+
   body {
     @apply bg-background text-foreground;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Tight tracking on headings — polished, intentional feel */
+  h1, h2, h3, h4 {
+    letter-spacing: -0.025em;
+    font-feature-settings: 'ss01', 'cv01';
+  }
+
+  /* Slightly open tracking on tiny labels for readability */
+  .text-xs {
+    letter-spacing: 0.01em;
+  }
+
+  /* Custom scrollbar — subtle, matches the theme */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted-foreground) / 0.25);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.4);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Utility Classes
+   ═══════════════════════════════════════════════════════════════ */
+
+@layer utilities {
+  /* Hide scrollbar but keep scroll functionality */
+  .scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
   }
 }

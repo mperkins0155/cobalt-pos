@@ -1,3 +1,11 @@
+// ============================================================
+// CloudPos — Reports Page
+// Phase 0D: Enhanced from cobalt-pos Reports with CloudPos design
+// Data: ReportingService + InventoryService + ReservationService + ExpenseService
+// TODO Phase 3: Add recharts (SalesChart, PaymentBreakdown, CategoryRevenue, HourlyVolume)
+// Last modified: V0.6.3.0 — see VERSION_LOG.md
+// ============================================================
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -8,7 +16,19 @@ import { ExpenseService } from '@/services/expenses';
 import { formatCurrency } from '@/lib/calculations';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, DollarSign, ShoppingCart, TrendingUp, Receipt, AlertTriangle, CalendarDays, Wallet } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { StatCard } from '@/components/pos';
+import {
+  BarChart3,
+  DollarSign,
+  ShoppingCart,
+  TrendingUp,
+  Receipt,
+  AlertTriangle,
+  CalendarDays,
+  Wallet,
+  FileText,
+} from 'lucide-react';
 import type { InventoryRecord, Reservation } from '@/types/database';
 
 export default function Reports() {
@@ -16,8 +36,9 @@ export default function Reports() {
   const { organization, currentLocation } = useAuth();
   const [summary, setSummary] = useState<SalesSummary | null>(null);
   const [lowStock, setLowStock] = useState<InventoryRecord[]>([]);
-  const [upcomingReservations, setUpcomingReservations] = useState<Reservation[]>([]);
-  const [expenseSnapshot, setExpenseSnapshot] = useState<{ total: number; paid: number; pending: number } | null>(null);
+  const [upcomingRes, setUpcomingRes] = useState<Reservation[]>([]);
+  const [expenses, setExpenses] = useState<{ total: number; paid: number; pending: number } | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!organization) return;
@@ -29,82 +50,117 @@ export default function Reports() {
       ReservationService.listUpcoming(organization.id, currentLocation?.id, 5),
       ExpenseService.getSummary(organization.id, currentLocation?.id),
     ])
-      .then(([sales, lowStockRows, reservationRows, expenseRows]) => {
+      .then(([sales, stock, reservations, exp]) => {
         setSummary(sales);
-        setLowStock(lowStockRows);
-        setUpcomingReservations(reservationRows);
-        setExpenseSnapshot({
-          total: expenseRows.total,
-          paid: expenseRows.paid,
-          pending: expenseRows.pending,
-        });
+        setLowStock(stock);
+        setUpcomingRes(reservations);
+        setExpenses({ total: exp.total, paid: exp.paid, pending: exp.pending });
       })
-      .catch(console.error);
+      .catch(console.error)
+      .finally(() => setLoading(false));
   }, [organization, currentLocation]);
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="bg-primary text-primary-foreground px-4 py-3 flex items-center gap-3">
-        <Button variant="ghost" size="icon" className="text-primary-foreground" onClick={() => navigate('/pos')}><ArrowLeft className="h-5 w-5" /></Button>
-        <h1 className="text-lg font-bold">Reports</h1>
-        <div className="ml-auto">
-          <Button variant="ghost" size="sm" className="text-primary-foreground text-xs" onClick={() => navigate('/reports/closeout')}>Z Report</Button>
+    <div className="flex-1 overflow-y-auto p-4 pos-tablet:p-5 pos-desktop:px-7 pos-desktop:py-6">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center gap-2">
+          <BarChart3 className="h-5 w-5 text-primary" />
+          <h2 className="text-lg font-bold text-foreground">Reports</h2>
         </div>
-      </header>
-      <div className="p-4 space-y-3 max-w-2xl mx-auto">
-        <h2 className="text-sm font-semibold text-muted-foreground">Today's Summary</h2>
-        <div className="grid grid-cols-2 gap-3">
-          <Card><CardContent className="pt-4"><div className="flex items-center gap-2"><DollarSign className="h-5 w-5 text-green-600" /><div><p className="text-xs text-muted-foreground">Gross Sales</p><p className="text-lg font-bold">{formatCurrency(summary?.gross_sales || 0)}</p></div></div></CardContent></Card>
-          <Card><CardContent className="pt-4"><div className="flex items-center gap-2"><ShoppingCart className="h-5 w-5 text-blue-600" /><div><p className="text-xs text-muted-foreground">Orders</p><p className="text-lg font-bold">{summary?.order_count || 0}</p></div></div></CardContent></Card>
-          <Card><CardContent className="pt-4"><div className="flex items-center gap-2"><TrendingUp className="h-5 w-5 text-purple-600" /><div><p className="text-xs text-muted-foreground">Avg Order</p><p className="text-lg font-bold">{formatCurrency(summary?.avg_order_value || 0)}</p></div></div></CardContent></Card>
-          <Card><CardContent className="pt-4"><div className="flex items-center gap-2"><Receipt className="h-5 w-5 text-orange-600" /><div><p className="text-xs text-muted-foreground">Tax Collected</p><p className="text-lg font-bold">{formatCurrency(summary?.tax_collected || 0)}</p></div></div></CardContent></Card>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <Card><CardContent className="pt-4"><div className="flex items-center gap-2"><AlertTriangle className="h-5 w-5 text-red-600" /><div><p className="text-xs text-muted-foreground">Low Stock Items</p><p className="text-lg font-bold">{lowStock.length}</p></div></div></CardContent></Card>
-          <Card><CardContent className="pt-4"><div className="flex items-center gap-2"><CalendarDays className="h-5 w-5 text-sky-600" /><div><p className="text-xs text-muted-foreground">Upcoming Reservations</p><p className="text-lg font-bold">{upcomingReservations.length}</p></div></div></CardContent></Card>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <Card><CardContent className="pt-4"><div className="flex items-center gap-2"><Wallet className="h-5 w-5 text-indigo-600" /><div><p className="text-xs text-muted-foreground">Expenses (Total)</p><p className="text-lg font-bold">{formatCurrency(expenseSnapshot?.total || 0)}</p></div></div></CardContent></Card>
-          <Card><CardContent className="pt-4"><div className="flex items-center gap-2"><Wallet className="h-5 w-5 text-amber-600" /><div><p className="text-xs text-muted-foreground">Expenses (Pending)</p><p className="text-lg font-bold">{formatCurrency(expenseSnapshot?.pending || 0)}</p></div></div></CardContent></Card>
-        </div>
-        {summary?.payment_breakdown && summary.payment_breakdown.length > 0 && (
-          <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Payment Breakdown</CardTitle></CardHeader>
-            <CardContent className="space-y-1">
-              {summary.payment_breakdown.map(p => (
-                <div key={p.tender_type} className="flex justify-between text-sm capitalize">
-                  <span>{p.tender_type} ({p.count})</span><span className="font-medium">{formatCurrency(p.total)}</span>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        )}
-        {lowStock.length > 0 && (
-          <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-sm">Out-Of-Stock / Low-Stock Alerts</CardTitle></CardHeader>
-            <CardContent className="space-y-1">
-              {lowStock.slice(0, 8).map((row) => (
-                <div key={row.id} className="flex justify-between text-sm">
-                  <span>{row.item?.name || 'Item'}{row.variant?.name ? ` (${row.variant.name})` : ''}</span>
-                  <span className="font-medium">{row.quantity_on_hand} / {row.low_stock_threshold}</span>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        )}
-        {upcomingReservations.length > 0 && (
-          <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-sm">Upcoming Reservations</CardTitle></CardHeader>
-            <CardContent className="space-y-1">
-              {upcomingReservations.map((reservation) => (
-                <div key={reservation.id} className="flex justify-between text-sm">
-                  <span>{reservation.customer_name || 'Guest'} ({reservation.party_size})</span>
-                  <span className="font-medium">{new Date(reservation.reserved_for).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        )}
+        <Button variant="outline" size="sm" onClick={() => navigate('/reports/closeout')}>
+          <FileText className="h-3.5 w-3.5 mr-1.5" />
+          Z-Report
+        </Button>
       </div>
+
+      {loading ? (
+        <div className="grid grid-cols-2 pos-desktop:grid-cols-4 gap-3">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <Skeleton key={i} className="h-[88px] rounded-lg" />
+          ))}
+        </div>
+      ) : (
+        <>
+          {/* Sales summary stat cards */}
+          <h3 className="text-sm font-semibold text-muted-foreground mb-2">Today's Summary</h3>
+          <div className="grid grid-cols-2 pos-desktop:grid-cols-4 gap-3 mb-5">
+            <StatCard icon={<DollarSign className="h-4 w-4" />} label="Gross Sales" value={formatCurrency(summary?.gross_sales || 0)} accent="success" />
+            <StatCard icon={<ShoppingCart className="h-4 w-4" />} label="Orders" value={summary?.order_count || 0} accent="primary" />
+            <StatCard icon={<TrendingUp className="h-4 w-4" />} label="Avg Order" value={formatCurrency(summary?.avg_order_value || 0)} accent="primary" />
+            <StatCard icon={<Receipt className="h-4 w-4" />} label="Tax Collected" value={formatCurrency(summary?.tax_collected || 0)} accent="warning" />
+          </div>
+
+          <div className="grid grid-cols-2 pos-desktop:grid-cols-4 gap-3 mb-5">
+            <StatCard icon={<DollarSign className="h-4 w-4" />} label="Tips" value={formatCurrency(summary?.tips || 0)} accent="success" />
+            <StatCard icon={<AlertTriangle className="h-4 w-4" />} label="Low Stock" value={lowStock.length} accent="warning" />
+            <StatCard icon={<CalendarDays className="h-4 w-4" />} label="Reservations" value={upcomingRes.length} accent="primary" />
+            <StatCard icon={<Wallet className="h-4 w-4" />} label="Expenses" value={formatCurrency(expenses?.total || 0)} accent="warning" />
+          </div>
+
+          {/* Payment breakdown */}
+          {summary?.payment_breakdown && summary.payment_breakdown.length > 0 && (
+            <Card className="mb-4">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-bold">Payment Breakdown</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {summary.payment_breakdown.map((p) => (
+                  <div key={p.tender_type} className="flex justify-between items-center text-sm">
+                    <span className="capitalize text-muted-foreground">
+                      {p.tender_type} <span className="text-xs">({p.count})</span>
+                    </span>
+                    <span className="font-semibold">{formatCurrency(p.total)}</span>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Low stock alerts */}
+          {lowStock.length > 0 && (
+            <Card className="mb-4">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-bold text-warning">Low Stock Alerts</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-1.5">
+                {lowStock.slice(0, 8).map((row) => (
+                  <div key={row.id} className="flex justify-between text-sm">
+                    <span className="text-foreground">
+                      {row.item?.name || 'Item'}
+                      {row.variant?.name ? ` (${row.variant.name})` : ''}
+                    </span>
+                    <span className="font-medium text-warning">
+                      {row.quantity_on_hand} / {row.low_stock_threshold}
+                    </span>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Upcoming reservations */}
+          {upcomingRes.length > 0 && (
+            <Card className="mb-4 pb-20 pos-tablet:pb-4">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-bold">Upcoming Reservations</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-1.5">
+                {upcomingRes.map((r) => (
+                  <div key={r.id} className="flex justify-between text-sm">
+                    <span className="text-foreground">
+                      {r.customer_name || 'Guest'} ({r.party_size})
+                    </span>
+                    <span className="font-medium text-primary">
+                      {new Date(r.reserved_for).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                    </span>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+        </>
+      )}
     </div>
   );
 }

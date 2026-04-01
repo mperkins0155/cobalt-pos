@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { Toaster } from '@/components/ui/sonner';
+import { AppShell } from '@/components/nav';
 
 // Lazy-load pages
 import { lazy, Suspense } from 'react';
@@ -8,6 +9,7 @@ import { lazy, Suspense } from 'react';
 const Login = lazy(() => import('@/pages/Login'));
 const AuthCallback = lazy(() => import('@/pages/AuthCallback'));
 const Onboarding = lazy(() => import('@/pages/Onboarding'));
+const Dashboard = lazy(() => import('@/pages/Dashboard'));
 const POS = lazy(() => import('@/pages/POS'));
 const Checkout = lazy(() => import('@/pages/Checkout'));
 const Receipt = lazy(() => import('@/pages/Receipt'));
@@ -26,6 +28,8 @@ const Quotations = lazy(() => import('@/pages/Quotations'));
 const Expenses = lazy(() => import('@/pages/Expenses'));
 const Reports = lazy(() => import('@/pages/Reports'));
 const Closeout = lazy(() => import('@/pages/Closeout'));
+const History = lazy(() => import('@/pages/History'));
+const Staff = lazy(() => import('@/pages/Staff'));
 const Settings = lazy(() => import('@/pages/Settings'));
 
 function LoadingFallback() {
@@ -52,7 +56,7 @@ function ProtectedRoute() {
 function ManagerRoute() {
   const { hasRole, loading } = useAuth();
   if (loading) return <LoadingFallback />;
-  if (!hasRole('manager')) return <Navigate to="/pos" replace />;
+  if (!hasRole('manager')) return <Navigate to="/dashboard" replace />;
   return <Outlet />;
 }
 
@@ -60,48 +64,57 @@ function AppRoutes() {
   return (
     <Suspense fallback={<LoadingFallback />}>
       <Routes>
-        {/* Public */}
+        {/* Public — no nav shell */}
         <Route path="/login" element={<Login />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
 
         {/* Protected */}
         <Route element={<ProtectedRoute />}>
+          {/* Onboarding — no nav shell (first-time setup) */}
           <Route path="/onboarding" element={<Onboarding />} />
 
-          {/* POS */}
-          <Route path="/pos" element={<POS />} />
-          <Route path="/pos/checkout" element={<Checkout />} />
-          <Route path="/pos/receipt/:orderId" element={<Receipt />} />
-          <Route path="/pos/tickets" element={<Tickets />} />
+          {/* All app pages — wrapped in responsive AppShell (Sidebar/TopNav/BottomNav) */}
+          <Route element={<AppShell />}>
+            {/* Dashboard — landing page */}
+            <Route path="/dashboard" element={<Dashboard />} />
 
-          {/* Orders */}
-          <Route path="/orders" element={<Orders />} />
-          <Route path="/orders/:orderId" element={<OrderDetail />} />
+            {/* POS */}
+            <Route path="/pos" element={<POS />} />
+            <Route path="/pos/checkout" element={<Checkout />} />
+            <Route path="/pos/receipt/:orderId" element={<Receipt />} />
+            <Route path="/pos/tickets" element={<Tickets />} />
 
-          {/* Customers */}
-          <Route path="/customers" element={<Customers />} />
-          <Route path="/customers/:customerId" element={<CustomerDetail />} />
+            {/* Orders */}
+            <Route path="/orders" element={<Orders />} />
+            <Route path="/orders/:orderId" element={<OrderDetail />} />
+            <Route path="/history" element={<History />} />
 
-          {/* Manager+ routes */}
-          <Route element={<ManagerRoute />}>
-            <Route path="/catalog" element={<Catalog />} />
-            <Route path="/inventory" element={<Inventory />} />
-            <Route path="/reservations" element={<Reservations />} />
-            <Route path="/table-floor" element={<TableFloor />} />
-            <Route path="/suppliers" element={<Suppliers />} />
-            <Route path="/purchasing" element={<Purchasing />} />
-            <Route path="/quotations" element={<Quotations />} />
-            <Route path="/expenses" element={<Expenses />} />
-            <Route path="/reports" element={<Reports />} />
-            <Route path="/reports/closeout" element={<Closeout />} />
-            <Route path="/settings" element={<Settings />} />
+            {/* Customers */}
+            <Route path="/customers" element={<Customers />} />
+            <Route path="/customers/:customerId" element={<CustomerDetail />} />
+
+            {/* Manager+ routes */}
+            <Route element={<ManagerRoute />}>
+              <Route path="/staff" element={<Staff />} />
+              <Route path="/catalog" element={<Catalog />} />
+              <Route path="/inventory" element={<Inventory />} />
+              <Route path="/reservations" element={<Reservations />} />
+              <Route path="/table-floor" element={<TableFloor />} />
+              <Route path="/suppliers" element={<Suppliers />} />
+              <Route path="/purchasing" element={<Purchasing />} />
+              <Route path="/quotations" element={<Quotations />} />
+              <Route path="/expenses" element={<Expenses />} />
+              <Route path="/reports" element={<Reports />} />
+              <Route path="/reports/closeout" element={<Closeout />} />
+              <Route path="/settings" element={<Settings />} />
+            </Route>
+
+            {/* Default */}
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
           </Route>
-
-          {/* Default */}
-          <Route path="/" element={<Navigate to="/pos" replace />} />
         </Route>
 
-        <Route path="*" element={<Navigate to="/pos" replace />} />
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </Suspense>
   );
