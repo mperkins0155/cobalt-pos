@@ -5,6 +5,36 @@
 
 ---
 
+## V0.7.0.0-Production
+**Timestamp:** 2026-04-01T21:10:00Z
+**Triggered By:** feature addition (moderate milestone)
+**Phase:** 1 — Keyboard & Speed Optimizations
+**Files Changed:**
+  - src/hooks/useKeyboardShortcuts.ts (NEW — 104 lines)
+  - src/components/KeyboardShortcutsHelp.tsx (NEW — 89 lines)
+  - src/components/CommandPalette.tsx (NEW — 213 lines)
+  - src/components/nav/AppShell.tsx (MODIFIED — restructured for overlay rendering)
+**Summary:** Global keyboard shortcuts (Ctrl+K, /, ?, N, Escape) and command palette (cmdk) with debounced search across orders, customers, and menu items. AppShell restructured from early-return to layout-variable pattern to support portal overlays across all breakpoints.
+**Pre-State:** No keyboard shortcuts. No command palette. AppShell used early returns per breakpoint.
+**Post-State:** 5 global shortcuts active. Command palette searches 3 entity types + 6 quick actions. KeyboardShortcutsHelp shows styled kbd badges. AppShell renders overlays after layout variable.
+**Next Target:** V0.7.1.0 — Phase 2 (Kitchen Intelligence: sound service + auto-refresh + Realtime)
+
+---
+
+## V0.6.4.0-Production
+**Timestamp:** 2026-04-01T20:30:00Z
+**Triggered By:** feature addition
+**Phase:** 0D-2 — POS Register + Checkout Styling
+**Files Changed:**
+  - src/pages/POS.tsx (ENHANCED — 327 lines, was 391)
+  - src/pages/Checkout.tsx (ENHANCED — 333 lines, was 382)
+**Summary:** Restyled core revenue path with CloudPos design. Removed standalone blue headers (AppShell handles nav). POS uses SearchBar + FilterPills for categories, EmptyState for no results, Skeleton loading. Checkout uses theme colors (success-tint for change due, destructive for errors). Mobile cart FAB repositioned to bottom-20 for BottomNav clearance.
+**Pre-State:** POS and Checkout had standalone bg-primary headers with their own nav buttons. Hardcoded green/blue colors.
+**Post-State:** Both pages render cleanly within AppShell. All colors use theme tokens. Phase 0 is now fully complete.
+**Next Target:** V0.7.0.0 — Phase 1 (Keyboard shortcuts + Command palette)
+
+---
+
 ## V0.6.3.0-Production
 **Timestamp:** 2026-04-01T17:30:00Z
 **Triggered By:** feature addition

@@ -1,7 +1,7 @@
 # CloudPos Implementation Progress Log
-# Last updated: April 1, 2026 — Phase 0D-1 complete (12 pages + 2 modals)
+# Last updated: April 1, 2026 — Phase 0D-2 + Phase 1 complete
 
-## CURRENT VERSION: V0.6.3.0-Production
+## CURRENT VERSION: V0.7.0.0-Production
 ## CURRENT STATE
 - ALL 8 PROTOTYPE BUILD PHASES COMPLETE
 - 6 AUDITS COMPLETE — 26 bugs found/fixed, 37 verification checks passing
@@ -11,13 +11,11 @@
 - 5-CODEBASE COMPETITIVE ANALYSIS COMPLETE — patterns identified for adoption
 - 12-PHASE INTEGRATION ROADMAP COMPLETE — 20 sessions estimated to V1
 - GAP ANALYSIS COMPLETE — V1 needs ~5,200 new lines across ~56 files
-- VERSIONING SYSTEM ACTIVE — VERSION_LOG.md with 5 entries
-- **PHASE 0A COMPLETE** — CloudPos theme tokens mapped to Tailwind/shadcn
-- **PHASE 0B COMPLETE** — 8 shared POS components + toast helpers created
-- **PHASE 0C COMPLETE** — Responsive navigation (Sidebar, TopNav, BottomNav, AppShell)
-- **PHASE 0D-1 COMPLETE** — 12 pages enhanced/created + 2 modals (2,804 lines)
+- VERSIONING SYSTEM ACTIVE — VERSION_LOG.md with 7 entries
+- **PHASE 0 COMPLETE** — Foundation merge (theme + components + nav + all pages)
+- **PHASE 1 COMPLETE** — Keyboard shortcuts + Command palette
 - Blocking Issues: none
-- NEXT: **Phase 0D-2 — Enhance POS.tsx + Checkout.tsx with CloudPos design**
+- NEXT: **Phase 2 — Kitchen Intelligence (sound service + auto-refresh + Realtime)**
 
 ## PHASE 0 PROGRESS (Foundation Merge)
 
@@ -80,10 +78,31 @@
 | modals/TableDetail.tsx | NEW | 156 | TableService + OrderService — Dialog, order items, actions |
 | modals/ChangeTable.tsx | NEW | 153 | TableService — current→new visual, available grid, confirm |
 
-**Phase 0D-2 ⬜ PENDING — POS register + Checkout styling**
-- POS.tsx (391 lines) — already wired to CatalogService + useCart. Needs CloudPos styling.
-- Checkout.tsx (382 lines) — already wired to PaymentService + Helcim. Needs CloudPos styling.
-- These are the core revenue path; large files requiring careful refactor.
+**Phase 0D-2 ✅ COMPLETE — POS register + Checkout styling (V0.6.4.0)**
+- POS.tsx — 327 lines (was 391): Removed standalone blue header (AppShell handles nav). SearchBar + FilterPills for categories. CloudPos theme colors. EmptyState. Mobile cart FAB at bottom-20 for BottomNav clearance.
+- Checkout.tsx — 333 lines (was 382): Removed blue header, added Back button. Theme colors (success-tint for change due, destructive for errors). Tip maxLength guard. Same full payment flow preserved (cash/card/other).
+
+## PHASE 1 PROGRESS (Keyboard & Speed Optimizations)
+
+### 1A. Keyboard Shortcuts ✅ COMPLETE (V0.7.0.0)
+**Files created:** 2 files
+- **useKeyboardShortcuts.ts** (104 lines) — Configurable hook. Input-aware (won't fire in INPUT/TEXTAREA/contentEditable). Escape always fires. Key combo parser (ctrl+k, meta+k, shift+x). Returns getDescriptions() for help overlay.
+- **KeyboardShortcutsHelp.tsx** (89 lines) — Dialog overlay. KeyBadge component renders styled kbd elements. Shows all active shortcuts.
+
+**Shortcuts wired (via AppShell):**
+| Key | Action |
+|-----|--------|
+| Ctrl+K / ⌘+K | Open command palette |
+| / | Open command palette (alt) |
+| ? | Show keyboard shortcuts help |
+| N | Navigate to POS (new order) |
+| Escape | Close any open overlay |
+
+### 1B. Command Palette ✅ COMPLETE (V0.7.0.0)
+**Files created:** 1 file
+- **CommandPalette.tsx** (213 lines) — shadcn CommandDialog (cmdk). Debounced search (300ms). Searches orders (by order_number/customer_name), customers (via CustomerService.search), menu items (by name/SKU). 6 quick actions always visible (New Order, Dashboard, KDS, Z-Report, Table Floor, Settings). Results grouped by type with icons.
+
+**AppShell.tsx updated:** Restructured from early-return pattern to layout-variable pattern. Renders CommandPalette + KeyboardShortcutsHelp as portal overlays after layout (works across all 3 breakpoints).
 
 **Phase 0D-1 Key Decisions:**
 - POS.tsx and Checkout.tsx kept as-is for 0D-1 (fully functional, just old styling)
@@ -119,9 +138,9 @@
 - `npm run build`: 0 errors, 0 warnings (last run: April 1, 2026)
 - `npm run test`: 33/33 passed, 0 regressions
 - `npx tsc --noEmit`: 0 TypeScript errors
-- Dashboard chunk: 6.09 kB gzip (separate lazy-loaded chunk)
-- Supabase vendor: 173.69 kB gzip (largest chunk — expected)
-- All 14 pages render within AppShell (no stale blue headers remaining on enhanced pages)
+- Index chunk: 85.67 kB gzip (grew from 55 kB — CommandPalette + cmdk in main bundle)
+- POS chunk: 9.70 kB gzip (shrunk from 14 kB — removed standalone nav)
+- All pages render within AppShell. Zero old-style blue headers remaining.
 
 ## V1 vs V2 SCOPE (unchanged)
 
@@ -164,6 +183,8 @@
 - **March 28: Phase 0B — Component library (11 files, 657 lines, 8 components + toasts)**
 - **March 30: Phase 0C — Responsive navigation (8 files, ~540 lines, Sidebar/TopNav/BottomNav/AppShell + App.tsx restructured)**
 - **April 1: Phase 0D-1 — Pages extraction batch 1 (12 pages + 2 modals, 2,804 lines, all wired to services)**
+- **April 1: Phase 0D-2 — POS + Checkout restyled (removed standalone headers, CloudPos design)**
+- **April 1: Phase 1 — Keyboard shortcuts hook + KeyboardShortcutsHelp overlay + CommandPalette (cmdk)**
 
 ## AUDIT LOG (Phase 0)
 ### Phase 0A Audit (4 issues)
@@ -189,11 +210,12 @@
 5. ✅ Phase 0B: Component library — DONE (V0.6.1.0)
 6. ✅ Phase 0C: Responsive navigation — DONE (V0.6.2.0)
 7. ✅ Phase 0D-1: Pages extraction (12 pages + 2 modals) — DONE (V0.6.3.0)
-8. **Phase 0D-2: Enhance POS.tsx + Checkout.tsx with CloudPos design** ← NEXT
-9. Phase 1: Keyboard shortcuts + command palette
-10. Phase 2: Kitchen intelligence (sound + auto-refresh + Realtime)
+8. ✅ Phase 0D-2: POS + Checkout restyled — DONE (V0.6.4.0)
+9. ✅ Phase 1: Keyboard shortcuts + Command palette — DONE (V0.7.0.0)
+10. **Phase 2: Kitchen intelligence (sound + auto-refresh + Realtime)** ← NEXT
 11. Phase 3: Data tables + charts + reporting
-12. Phases 4-12: See cloudpos-integration-roadmap.md
+12. Phase 4: Modifier groups
+13. Phases 5-12: See cloudpos-integration-roadmap.md
 
 ## DECISIONS LOG
 - Reused CutMerchantCosts project for CloudPos (free tier 2-project limit)
@@ -253,3 +275,15 @@
 - src/pages/CustomerDetail.tsx — 221 lines (was 16 stub → full profile, stats, history)
 - src/pages/Closeout.tsx — 199 lines (was 90 → open/close/report states, over/short)
 - src/components/nav/AppShell.tsx — 174 lines (added /history, /staff page titles)
+
+### Enhanced files (Phase 0D-2)
+- src/pages/POS.tsx — 327 lines (was 391 → removed standalone header, SearchBar, FilterPills, theme colors)
+- src/pages/Checkout.tsx — 333 lines (was 382 → removed blue header, success-tint change due, accessible form)
+
+### New files (Phase 1)
+- src/hooks/useKeyboardShortcuts.ts — 104 lines (configurable shortcuts hook, input-aware)
+- src/components/KeyboardShortcutsHelp.tsx — 89 lines (Dialog overlay with KeyBadge component)
+- src/components/CommandPalette.tsx — 213 lines (cmdk-based global search: orders, customers, items, quick actions)
+
+### Modified files (Phase 1)
+- src/components/nav/AppShell.tsx — ~230 lines (restructured for overlays, added useState, keyboard shortcuts, CommandPalette + Help rendering)
