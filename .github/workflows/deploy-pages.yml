@@ -37,7 +37,10 @@ jobs:
         env:
           VITE_SUPABASE_URL: https://tnjbdtsxrhmywcaueuvv.supabase.co
           VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
-        run: npm run build -- --base /cobalt-pos-2026-03-04/
+          VITE_BASE_PATH: /cobalt-pos-2026-03-04/
+          VITE_ENABLE_CARD_PAYMENTS: "false"
+          VITE_ENABLE_EMAIL_RECEIPTS: "false"
+        run: npm run build:pages
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

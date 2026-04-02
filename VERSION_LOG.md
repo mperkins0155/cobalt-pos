@@ -5,6 +5,36 @@
 
 ---
 
+## V1.4.0.0-Production
+**Timestamp:** 2026-04-02T00:25:00Z
+**Triggered By:** deployment hardening
+**Phase:** 8 — production integration QA + deployment hardening
+**Files Changed:**
+  - .github/workflows/deploy-pages.yml (MODIFIED)
+  - .env.example (MODIFIED)
+  - README.md (MODIFIED — rewritten)
+  - package.json (MODIFIED)
+  - vite.config.ts (MODIFIED)
+  - src/lib/appEnv.ts (NEW)
+  - src/lib/supabase.ts (MODIFIED)
+  - src/pages/Checkout.tsx (MODIFIED)
+  - src/pages/Receipt.tsx (MODIFIED)
+  - PROGRESS.md (MODIFIED)
+  - VERSION_LOG.md (MODIFIED)
+**Summary:** Hardened the deployment handoff and environment contract for GitHub Pages by moving build base-path and feature readiness into explicit env flags, adding a Pages-equivalent local build path, and bringing the repository documentation up to the actual branch state.
+**Detailed Changes:**
+  - app env: introduced a centralized `appEnv` helper for Supabase config, app URL/base path, and deploy-time feature flags.
+  - deployment workflow: GitHub Pages build now passes `VITE_BASE_PATH` and explicit card/email feature flags instead of embedding the base path in the build command.
+  - runtime gating: checkout card readiness and receipt email readiness now come from env flags rather than hidden code constants.
+  - repo docs: README rewritten to reflect the current implementation, validation commands, Pages deployment contract, and remaining production-launch work.
+  - build parity: added `build:pages` and verified a Pages-equivalent build locally using the repo’s expected base path.
+**Pre-State:** The repo still relied on implicit deployment assumptions: Pages base path was passed ad hoc in the workflow, runtime feature readiness lived in code constants, and README status/documentation lagged behind the actual branch state.
+**Post-State:** Deployment assumptions are explicit, reproducible, and documented. The branch now has a cleaner path for Pages deployment and a safer handoff for later live integration QA.
+**Verification:** `npm run build` passed, `npm run build:pages` passed with `VITE_BASE_PATH=/cobalt-pos-2026-03-04/`, `npx tsc --noEmit` passed, `npm run lint` passed, `npm test` passed (38/38).
+**Next Target:** V1.5.0.0 — Phase 9 (live Supabase/Helcim integration QA)
+
+---
+
 ## V1.3.0.0-Production
 **Timestamp:** 2026-04-01T23:50:00Z
 **Triggered By:** launch hardening

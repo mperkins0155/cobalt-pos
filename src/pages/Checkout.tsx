@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/hooks/useCart';
+import { appEnv } from '@/lib/appEnv';
 import { OrderService } from '@/services/orders';
 import { PaymentService } from '@/services/payments';
 import { formatCurrency, calcChangeDue, calcTipFromPercent, round2 } from '@/lib/calculations';
@@ -22,8 +23,6 @@ import {
 import type { TenderType } from '@/types/database';
 
 type CheckoutStep = 'tip' | 'payment' | 'processing' | 'complete';
-
-const CARD_PAYMENTS_READY = false;
 
 export default function Checkout() {
   const navigate = useNavigate();
@@ -258,7 +257,7 @@ export default function Checkout() {
                     key: 'card' as TenderType,
                     icon: CreditCard,
                     label: 'Card',
-                    disabled: !CARD_PAYMENTS_READY,
+                    disabled: !appEnv.cardPaymentsEnabled,
                     hint: 'Helcim checkout UI still pending',
                   },
                   { key: 'cash' as TenderType, icon: Banknote, label: 'Cash' },
@@ -279,7 +278,7 @@ export default function Checkout() {
                 ))}
               </div>
 
-              {!CARD_PAYMENTS_READY && (
+              {!appEnv.cardPaymentsEnabled && (
                 <div className="rounded-lg border border-warning/20 bg-warning-tint p-3 text-sm text-warning">
                   Card checkout is not enabled in this build yet. Use cash or another payment app for live sales.
                 </div>

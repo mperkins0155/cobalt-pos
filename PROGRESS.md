@@ -1,7 +1,7 @@
 # CloudPos Implementation Progress Log
-# Last updated: April 1, 2026 — Phase 7 complete
+# Last updated: April 2, 2026 — Phase 8 complete
 
-## CURRENT VERSION: V1.3.0.0-Production
+## CURRENT VERSION: V1.4.0.0-Production
 ## CURRENT STATE
 - ALL 8 PROTOTYPE BUILD PHASES COMPLETE
 - 6 AUDITS COMPLETE — 26 bugs found/fixed, 37 verification checks passing
@@ -24,8 +24,9 @@
 - **PHASE 5 COMPLETE** — reusable printable receipt component and receipt route upgrade
 - **PHASE 6 COMPLETE** — banker-rounded finance helpers, aggregation utilities, and checkout money formatting hardening
 - **PHASE 7 COMPLETE** — launch-hardening sweep removed fake operator actions and misleading checkout paths
+- **PHASE 8 COMPLETE** — deployment/env hardening for GitHub Pages and production handoff
 - Blocking Issues: none
-- NEXT: **Phase 8 — production integration QA + deployment hardening**
+- NEXT: **Phase 9 — live Supabase/Helcim integration QA**
 
 ## PHASE 0 PROGRESS (Foundation Merge)
 
@@ -129,6 +130,7 @@
 - `npm run lint`: passed (verified April 1, 2026)
 - `npm run test`: 38/38 passed (verified April 1, 2026)
 - `npx tsc --noEmit`: 0 TypeScript errors (verified April 1, 2026)
+- `npm run build:pages` with `VITE_BASE_PATH=/cobalt-pos-2026-03-04/`: passed (verified April 2, 2026)
 - Dashboard chunk: 6.09 kB gzip (separate lazy-loaded chunk)
 - Supabase vendor: 173.69 kB gzip (largest chunk — expected)
 - All 14 pages render within AppShell (no stale blue headers remaining on enhanced pages)
@@ -182,6 +184,7 @@
 - **April 1: Phase 5 — Receipt & printing complete**
 - **April 1: Phase 6 — Financial hardening complete**
 - **April 1: Phase 7 — UX polish + launch hardening complete**
+- **April 2: Phase 8 — deployment/env hardening complete**
 
 ## AUDIT LOG (Phase 0)
 ### Phase 0A Audit (4 issues)
@@ -215,7 +218,8 @@
 13. ✅ Phase 5: Receipt & printing — DONE (V1.1.0.0)
 14. ✅ Phase 6: Financial hardening — DONE (V1.2.0.0)
 15. ✅ Phase 7: UX polish + launch hardening — DONE (V1.3.0.0)
-16. **Phase 8: production integration QA + deployment hardening** ← NEXT
+16. ✅ Phase 8: production integration QA + deployment hardening — DONE (V1.4.0.0)
+17. **Phase 9: live Supabase/Helcim integration QA** ← NEXT
 
 ## DECISIONS LOG
 - Reused CutMerchantCosts project for CloudPos (free tier 2-project limit)
@@ -330,3 +334,14 @@
 ### Enhanced files (Phase 7)
 - src/pages/Checkout.tsx — card tender is now honestly disabled until Helcim UI is wired, with clear cashier-facing messaging
 - src/pages/Receipt.tsx — email receipt action now shows as unavailable instead of triggering a stub toast
+
+### Enhanced files (Phase 8)
+- .github/workflows/deploy-pages.yml — build now uses env-driven Pages base path and explicit feature flags
+- .env.example — deployment base path and feature-flag contract documented
+- package.json — build:pages script added for local workflow parity
+- vite.config.ts — build base path now sourced from `VITE_BASE_PATH`
+- src/lib/appEnv.ts — centralized app env and feature-flag parsing
+- src/lib/supabase.ts — env access now uses centralized app env helper
+- src/pages/Checkout.tsx — card readiness now driven by env flag
+- src/pages/Receipt.tsx — email receipt readiness now driven by env flag
+- README.md — rewritten to match the actual repo state and deployment workflow

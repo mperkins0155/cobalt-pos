@@ -1,31 +1,25 @@
 # Cobalt POS
 
-Square-comparable POS system built with React, TypeScript, Vite, Supabase, and HelcimPay.js. The repo already contains broad merchant workflows across checkout, catalog, customers, inventory, reporting, reservations, and closeout.
+CloudPos-style restaurant POS built with React, TypeScript, Vite, Supabase, and Helcim edge-function integration points.
 
-## Current Status
+## Current status
 
-- Core EPICs A-I and K-M are marked complete in the repo.
-- `PROGRESS.md` shows Phase 5 complete and the next major step as Phase 6 financial hardening.
-- Supabase schema, services, pages, charts, and POS-specific hooks are already implemented.
-- Offline mode remains explicitly deferred.
+- `PROGRESS.md` is the source of truth for implementation status.
+- The repo is currently at `V1.3.0.0-Production`.
+- Foundation, navigation, POS/checkout restyle, command palette, KDS intelligence, reporting tables/charts, modifier groups, receipts, and finance hardening are implemented.
+- Card checkout UI is still intentionally disabled by default until the Helcim browser flow is fully wired.
+- Email receipt delivery is also disabled by default; print receipts are live.
 
-## What Is Working
+## What is working
 
-- Auth, tenancy, onboarding, roles, and audit flows
-- POS, checkout, tickets, orders, receipts, and refunds
-- Catalog, modifiers, inventory, customers, reservations, and suppliers
-- Reports, closeout, kitchen refresh, and printable receipts
-- Deterministic calculations with tests in `src/lib/calculations.test.ts`
+- Auth, tenancy, onboarding, role guards, and AppShell navigation
+- POS register, cart math, checkout, saved tickets, orders, refunds, receipts, and closeout
+- Catalog, modifiers, inventory, customers, reservations, suppliers, quotations, purchasing, and expenses
+- Kitchen display with React Query refresh, Supabase invalidation, and sound controls
+- Reports with reusable tables and lazy-loaded charts
+- Deterministic financial calculations with banker’s rounding and test coverage
 
-## What Needs To Be Done To Finish
-
-1. Complete Phase 6 financial hardening from `PROGRESS.md`.
-2. Run full integration QA against real Supabase and Helcim credentials, not only local/UI validation.
-3. Decide whether offline mode will stay deferred or move back into scope.
-4. Add production readiness checks for payments, refunds, closeout, and audit logging.
-5. Finish deployment and operator acceptance testing across cashier, manager, and owner roles.
-
-## Local Development
+## Local development
 
 ```bash
 npm install
@@ -33,9 +27,50 @@ cp .env.example .env
 npm run dev
 ```
 
-Validation:
+Required env vars:
+
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+
+Useful app env vars:
+
+- `VITE_APP_NAME`
+- `VITE_APP_URL`
+- `VITE_BASE_PATH`
+- `VITE_ENABLE_CARD_PAYMENTS`
+- `VITE_ENABLE_EMAIL_RECEIPTS`
+
+## Validation
 
 ```bash
-npm test
 npm run build
+npx tsc --noEmit
+npm run lint
+npm test
 ```
+
+## GitHub Pages deployment
+
+The repo includes a GitHub Pages workflow at `.github/workflows/deploy-pages.yml`.
+
+It expects:
+
+- branch: `master`
+- Pages base path: `/cobalt-pos-2026-03-04/`
+- `VITE_SUPABASE_ANON_KEY` configured as a GitHub Actions repository variable
+
+Equivalent local Pages build in PowerShell:
+
+```powershell
+$env:VITE_BASE_PATH='/cobalt-pos-2026-03-04/'
+$env:VITE_ENABLE_CARD_PAYMENTS='false'
+$env:VITE_ENABLE_EMAIL_RECEIPTS='false'
+npm run build:pages
+```
+
+## Remaining work before true production launch
+
+1. Wire the in-browser Helcim card payment UI and enable `VITE_ENABLE_CARD_PAYMENTS`.
+2. Add real email receipt delivery and enable `VITE_ENABLE_EMAIL_RECEIPTS`.
+3. Run end-to-end QA with live Supabase and processor credentials across cashier, manager, and owner roles.
+4. Tighten permissive dev-oriented RLS policies before broad rollout.

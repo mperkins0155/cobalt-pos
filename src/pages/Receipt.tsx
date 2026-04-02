@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Check, Home, Printer, Send } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { appEnv } from '@/lib/appEnv';
 import { OrderService } from '@/services/orders';
 import { Receipt as ReceiptCard } from '@/components/Receipt';
 import { Button } from '@/components/ui/button';
@@ -67,11 +68,15 @@ export default function ReceiptPage() {
                 <Button
                   variant="outline"
                   className="w-full"
-                  disabled
-                  title="Email delivery is not enabled in this build yet"
+                  disabled={!appEnv.emailReceiptsEnabled}
+                  title={
+                    appEnv.emailReceiptsEnabled
+                      ? 'Email receipt'
+                      : 'Email delivery is not enabled in this build yet'
+                  }
                 >
                   <Send className="mr-2 h-4 w-4" />
-                  Email Receipt Soon
+                  {appEnv.emailReceiptsEnabled ? 'Email Receipt' : 'Email Receipt Soon'}
                 </Button>
                 <Button
                   variant="outline"
