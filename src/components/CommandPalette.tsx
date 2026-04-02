@@ -1,4 +1,12 @@
-import { useState, useEffect, useCallback } from 'react';
+// ============================================================
+// CloudPos — Command Palette (Ctrl+K / ⌘+K)
+// Global search: orders, customers, menu items + quick actions
+// Uses cmdk (shadcn CommandDialog) with shouldFilter={false}
+// since we handle filtering ourselves via service calls.
+// Last modified: V0.7.0.1 — see VERSION_LOG.md
+// ============================================================
+
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { OrderService } from '@/services/orders';
@@ -38,7 +46,19 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [items, setItems] = useState<Item[]>([]);
+  const searchId = useRef(0);
 
+  // Clear results when palette closes
+  useEffect(() => {
+    if (!open) {
+      setQuery('');
+      setOrders([]);
+      setCustomers([]);
+      setItems([]);
+    }
+  }, [open]);
+
+  // Debounced search
   useEffect(() => {
     if (!open || !organization || query.length < 2) {
       setOrders([]);
@@ -47,13 +67,18 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
       return;
     }
 
+    const currentId = ++searchId.current;
+
     const timer = setTimeout(async () => {
       try {
         const [orderResult, customerResult, itemResult] = await Promise.allSettled([
-          OrderService.listOrders({ orgId: organization.id, limit: 5 }),
+          OrderService.listOrders({ orgId: organization.id, limit: 50 }),
           CustomerService.search(organization.id, query, 5),
           CatalogService.getItems(organization.id),
         ]);
+
+        // Abort if a newer search was started or palette closed
+        if (searchId.current !== currentId) return;
 
         if (orderResult.status === 'fulfilled') {
           const normalized = query.toLowerCase();
@@ -98,14 +123,8 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     navigate(path);
   }, [navigate, onOpenChange]);
 
-  const handleSelect = useCallback((path: string) => {
-    onOpenChange(false);
-    setQuery('');
-    navigate(path);
-  }, [navigate, onOpenChange]);
-
   return (
-    <CommandDialog open={open} onOpenChange={onOpenChange}>
+    <CommandDialog open={open} onOpenChange={onOpenChange} shouldFilter={false}>
       <CommandInput
         placeholder="Search orders, customers, items, or type a command..."
         value={query}
@@ -148,8 +167,8 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
               {orders.map((order) => (
                 <CommandItem
                   key={order.id}
-                  value={`order-${order.order_number}`}
-                  onSelect={() => handleSelect(`/orders/${order.id}`)}
+                  value={`order-${order.order_number}-${order.customer_name || ''}`}
+                  onSelect={() => runAction(`/orders/${order.id}`)}
                 >
                   <ClipboardList className="mr-2 h-4 w-4 text-muted-foreground" />
                   <span className="font-mono text-sm">#{order.order_number}</span>
@@ -172,8 +191,8 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
               {customers.map((customer) => (
                 <CommandItem
                   key={customer.id}
-                  value={`customer-${customer.first_name}-${customer.last_name}`}
-                  onSelect={() => handleSelect(`/customers/${customer.id}`)}
+                  value={`customer-${customer.first_name}-${customer.last_name}-${customer.phone || ''}`}
+                  onSelect={() => runAction(`/customers/${customer.id}`)}
                 >
                   <Users className="mr-2 h-4 w-4 text-muted-foreground" />
                   <span className="text-sm">
@@ -195,7 +214,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
               {items.map((item) => (
                 <CommandItem
                   key={item.id}
-                  value={`item-${item.name}`}
+                  value={`item-${item.name}-${item.sku || ''}`}
                   onSelect={() => runAction('/pos')}
                 >
                   <Tag className="mr-2 h-4 w-4 text-muted-foreground" />

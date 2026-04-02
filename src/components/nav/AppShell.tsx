@@ -61,9 +61,7 @@ export function AppShell() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
-  // Global overlay states
-  const [cmdOpen, setCmdOpen] = useState(false);
-  const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
+  const isMac = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.userAgent);
 
   const userName = profile
     ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'User'
@@ -86,6 +84,11 @@ export function AppShell() {
     () => [
       {
         key: 'ctrl+k',
+        description: 'Open command palette',
+        action: () => setPaletteOpen(true),
+      },
+      {
+        key: 'meta+k',
         description: 'Open command palette',
         action: () => setPaletteOpen(true),
       },
@@ -219,7 +222,10 @@ export function AppShell() {
       <KeyboardShortcutsHelp
         open={shortcutsOpen}
         onClose={() => setShortcutsOpen(false)}
-        shortcuts={getDescriptions()}
+        shortcuts={getDescriptions().filter((s) =>
+          // Show ⌘+K on Mac, Ctrl+K elsewhere — hide the duplicate
+          isMac ? s.key !== 'ctrl+k' : s.key !== 'meta+k'
+        )}
       />
     </>
   );

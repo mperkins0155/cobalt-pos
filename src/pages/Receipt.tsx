@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Check, Home, Printer, Send } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { appEnv } from '@/lib/appEnv';
 import { OrderService } from '@/services/orders';
 import { Receipt as ReceiptCard } from '@/components/Receipt';
 import { Button } from '@/components/ui/button';
@@ -43,6 +42,8 @@ export default function ReceiptPage() {
     );
   }
 
+  const emailReceiptsEnabled = false; // TODO: enable when email edge function is wired
+
   return (
     <div className="flex-1 overflow-y-auto bg-background p-4 pos-tablet:p-5 pos-desktop:px-7 pos-desktop:py-6">
       <div className="mx-auto max-w-3xl space-y-6">
@@ -68,15 +69,15 @@ export default function ReceiptPage() {
                 <Button
                   variant="outline"
                   className="w-full"
-                  disabled={!appEnv.emailReceiptsEnabled}
+                  disabled={!emailReceiptsEnabled}
                   title={
-                    appEnv.emailReceiptsEnabled
+                    emailReceiptsEnabled
                       ? 'Email receipt'
                       : 'Email delivery is not enabled in this build yet'
                   }
                 >
                   <Send className="mr-2 h-4 w-4" />
-                  {appEnv.emailReceiptsEnabled ? 'Email Receipt' : 'Email Receipt Soon'}
+                  {emailReceiptsEnabled ? 'Email Receipt' : 'Email Receipt Soon'}
                 </Button>
                 <Button
                   variant="outline"

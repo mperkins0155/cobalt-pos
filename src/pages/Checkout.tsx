@@ -9,10 +9,9 @@ import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/hooks/useCart';
-import { appEnv } from '@/lib/appEnv';
 import { OrderService } from '@/services/orders';
 import { PaymentService } from '@/services/payments';
-import { formatCurrency, calcChangeDue, calcTipFromPercent } from '@/lib/calculations';
+import { formatCurrency, calcChangeDue, calcTipFromPercent, round2 } from '@/lib/calculations';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -68,6 +67,10 @@ export default function Checkout() {
 
   const processPayment = useCallback(async () => {
     if (!organization || !profile) return;
+    if (paymentMethod === 'card') {
+      setError('Card payment integration is not yet available. Please use cash or another method.');
+      return;
+    }
     setProcessing(true);
     setError(null);
     try {
@@ -86,13 +89,6 @@ export default function Checkout() {
           organization.id, order.id, cart.totals.total,
           otherProvider, otherReference, cart.tipAmount
         );
-      } else if (paymentMethod === 'card') {
-        await PaymentService.initializeCardPayment(
-          order.id,
-          cart.totals.total,
-          organization.currency
-        );
-        throw new Error('Card payment UI integration pending — use cash or other for now');
       }
 
       await PaymentService.finalizeOrderPayments(
@@ -139,12 +135,14 @@ export default function Checkout() {
       ? calcChangeDue(cart.totals.total, parseFloat(cashReceived) || 0)
       : 0;
 
+  const cardPaymentsEnabled = false; // TODO: enable when Helcim integration is wired
+
   const canProcess =
     paymentMethod === 'cash'
       ? (parseFloat(cashReceived) || 0) >= cart.totals.total
       : paymentMethod === 'other'
         ? otherProvider.length > 0
-        : paymentMethod === 'card';
+        : false; // card not yet available
 
   return (
     <div className="flex-1 overflow-y-auto p-4 pos-tablet:p-5 pos-desktop:px-7 pos-desktop:py-6">
@@ -219,9 +217,12 @@ export default function Checkout() {
                     type="number"
                     step="0.01"
                     min="0"
-                    maxLength={8}
+                    max="9999.99"
                     value={customTip}
-                    onChange={(e) => handleCustomTip(e.target.value)}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v.length <= 8) handleCustomTip(v);
+                    }}
                   />
                 </div>
                 <Button variant="outline" onClick={handleNoTip}>No Tip</Button>
@@ -245,7 +246,7 @@ export default function Checkout() {
                     key: 'card' as TenderType,
                     icon: CreditCard,
                     label: 'Card',
-                    disabled: !appEnv.cardPaymentsEnabled,
+                    disabled: !cardPaymentsEnabled,
                     hint: 'Helcim checkout UI still pending',
                   },
                   { key: 'cash' as TenderType, icon: Banknote, label: 'Cash' },
@@ -266,7 +267,7 @@ export default function Checkout() {
                 ))}
               </div>
 
-              {!appEnv.cardPaymentsEnabled && (
+              {!cardPaymentsEnabled && (
                 <div className="rounded-lg border border-warning/20 bg-warning-tint p-3 text-sm text-warning">
                   Card checkout is not enabled in this build yet. Use cash or another payment app for live sales.
                 </div>

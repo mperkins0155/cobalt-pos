@@ -49,7 +49,7 @@ function matchesCombo(
   const shiftMatch = combo.shift ? e.shiftKey : true;
 
   if (!combo.ctrl && !combo.meta && !combo.shift) {
-    if (e.ctrlKey || e.metaKey || e.altKey) return false;
+    if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return false;
   }
 
   return keyMatch && ctrlMatch && metaMatch && shiftMatch;

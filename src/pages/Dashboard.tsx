@@ -1,385 +1,312 @@
-import { useEffect, useMemo, useState } from 'react';
+// ============================================================
+// CloudPos — Dashboard Page
+// Phase 0D: Extracted from prototype DashboardContent
+// Data: OrderService.listOrders() + ReportingService.getSalesSummary()
+// Last modified: V0.6.3.0 — see VERSION_LOG.md
+// ============================================================
+
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  AlertCircle,
-  ArrowUpRight,
-  Bot,
-  Boxes,
-  Clock3,
-  GitBranch,
-  Github,
-  RefreshCcw,
-  ShieldAlert,
-} from 'lucide-react';
-import { Bar, BarChart, CartesianGrid, Line, LineChart, XAxis, YAxis } from 'recharts';
-import { formatDistanceToNow } from 'date-fns';
-import { StatCard } from '@/components/pos';
-import { ProjectSourceHealthPanel } from '@/components/projects/ProjectSourceHealthPanel';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
+import { useAuth } from '@/contexts/AuthContext';
+import { OrderService } from '@/services/orders';
+import { ReportingService, type SalesSummary } from '@/services/reporting';
+import { formatCurrency } from '@/lib/calculations';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  ChartContainer,
-  ChartLegend,
-  ChartLegendContent,
-  ChartTooltip,
-  ChartTooltipContent,
-  type ChartConfig,
-} from '@/components/ui/chart';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+  StatCard,
+  FilterPills,
+  EmptyState,
+  SearchBar,
+} from '@/components/pos';
 import {
-  ProjectService,
-  type ProjectDashboardSnapshot,
-  type ProjectHealth,
-} from '@/services/projects';
+  Plus,
+  Wallet,
+  TrendingUp,
+  CheckCircle,
+  Clock,
+} from 'lucide-react';
+import type { Order } from '@/types/database';
 
-const throughputChartConfig = {
-  issuesTouched: { label: 'Issues Updated', color: 'hsl(var(--primary))' },
-  prsTouched: { label: 'PRs Updated', color: 'hsl(var(--success))' },
-  runsTouched: { label: 'Runs Touched', color: 'hsl(var(--warning))' },
-} satisfies ChartConfig;
+/** Map cobalt-pos order statuses to display groups */
+type DisplayStatus = 'In Progress' | 'Waiting for Payment' | 'Served';
 
-const ownershipChartConfig = {
-  onTrack: { label: 'On Track', color: 'hsl(var(--success))' },
-  atRisk: { label: 'At Risk', color: 'hsl(var(--warning))' },
-  blocked: { label: 'Blocked', color: 'hsl(var(--destructive))' },
-} satisfies ChartConfig;
-
-type AgentFilter = 'all' | 'Codex' | 'Claude' | 'Codex + Claude';
+function mapStatus(status: Order['status']): DisplayStatus {
+  switch (status) {
+    case 'open':
+    case 'pending':
+      return 'In Progress';
+    case 'paid':
+      return 'Served';
+    default:
+      return 'Waiting for Payment';
+  }
+}
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const [snapshot, setSnapshot] = useState<ProjectDashboardSnapshot | null>(null);
+  const { profile, organization } = useAuth();
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [summary, setSummary] = useState<SalesSummary | null>(null);
   const [loading, setLoading] = useState(true);
-  const [agentFilter, setAgentFilter] = useState<AgentFilter>('all');
-  const [showSourceHealth, setShowSourceHealth] = useState(false);
+  const [filter, setFilter] = useState('all');
 
+  const userName = profile?.first_name || 'Team';
+
+  // Load orders + sales summary
   useEffect(() => {
+    if (!organization) return;
     const load = async () => {
       try {
-        const response = await ProjectService.getActiveProjectDashboard();
-        setSnapshot(response);
-      } catch (error) {
-        console.error('Project dashboard load error:', error);
+        const [ordersRes, summaryRes] = await Promise.all([
+          OrderService.listOrders({ orgId: organization.id, limit: 50 }),
+          ReportingService.getSalesSummary(organization.id).catch(() => null),
+        ]);
+        setOrders(ordersRes.orders);
+        setSummary(summaryRes);
+      } catch (err) {
+        console.error('Dashboard load error:', err);
       } finally {
         setLoading(false);
       }
     };
+    load();
+  }, [organization]);
 
-    void load();
-  }, []);
+  // Filter active (non-completed) orders
+  const activeOrders = orders.filter(
+    (o) => o.status !== 'paid' && o.status !== 'voided' && o.status !== 'refunded'
+  );
+  const grouped = {
+    ip: activeOrders.filter((o) => mapStatus(o.status) === 'In Progress'),
+    wp: activeOrders.filter((o) => mapStatus(o.status) === 'Waiting for Payment'),
+    sv: activeOrders.filter((o) => mapStatus(o.status) === 'Served'),
+  };
 
-  const visibleProjects = useMemo(() => {
-    if (!snapshot) return [];
-    if (agentFilter === 'all') return snapshot.projects;
-    return snapshot.projects.filter((project) => project.agent === agentFilter);
-  }, [agentFilter, snapshot]);
+  // Mobile filter
+  const tabs = [
+    { key: 'all', label: 'All', count: activeOrders.length },
+    { key: 'In Progress', label: 'Progress', count: grouped.ip.length },
+    { key: 'Waiting for Payment', label: 'Waiting', count: grouped.wp.length },
+    { key: 'Served', label: 'Served', count: grouped.sv.length },
+  ];
+  const filtered =
+    filter === 'all'
+      ? activeOrders
+      : activeOrders.filter((o) => mapStatus(o.status) === filter);
 
-  const filteredKpis = useMemo(() => {
-    if (visibleProjects.length === 0) {
-      return { activeProjects: 0, openWorkItems: 0, blockedProjects: 0, updatedThisWeek: 0 };
-    }
+  // Stats
+  const totalEarning = summary?.total_collected ?? 0;
+  const inProgressCount = grouped.ip.length;
+  const servedCount = grouped.sv.length;
 
-    return {
-      activeProjects: visibleProjects.length,
-      openWorkItems: visibleProjects.reduce(
-        (total, project) => total + project.openIssues + project.openPullRequests,
-        0
-      ),
-      blockedProjects: visibleProjects.filter((project) => project.health === 'Blocked').length,
-      updatedThisWeek: visibleProjects.filter((project) =>
-        Date.now() - new Date(project.updatedAt).getTime() <= 7 * 24 * 60 * 60 * 1000
-      ).length,
-    };
-  }, [visibleProjects]);
+  // Time-based greeting
+  const hour = new Date().getHours();
+  const greeting =
+    hour < 12 ? 'Good Morning' : hour < 17 ? 'Good Afternoon' : 'Good Evening';
 
   return (
     <div className="flex-1 overflow-y-auto p-4 pos-tablet:p-5 pos-desktop:px-7 pos-desktop:py-6">
-      <div className="mb-5 flex flex-col gap-4 pos-desktop:flex-row pos-desktop:items-start pos-desktop:justify-between">
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-            <Bot className="h-4 w-4 text-primary" />
-            Active Project Command Center
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">
-              Codex + Claude delivery dashboard
-            </h1>
-            <p className="max-w-3xl text-sm text-muted-foreground">
-              Simplest valid shell for monitoring active projects, throughput, and risks across the
-              repos currently being worked on.
-            </p>
-          </div>
+      {/* Header */}
+      <div className="flex justify-between items-start mb-4 pos-tablet:mb-5">
+        <div>
+          <h2 className="text-lg pos-tablet:text-xl font-bold text-foreground mb-1">
+            {greeting}, {userName}
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Give your best services for customers, happy working!
+          </p>
         </div>
-
-        <div className="flex flex-col gap-2 pos-tablet:flex-row">
-          <Select
-            value={agentFilter}
-            onValueChange={(value) => setAgentFilter(value as AgentFilter)}
-          >
-            <SelectTrigger className="w-full pos-tablet:w-[180px]">
-              <SelectValue placeholder="All owners" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All owners</SelectItem>
-              <SelectItem value="Codex">Codex</SelectItem>
-              <SelectItem value="Claude">Claude</SelectItem>
-              <SelectItem value="Codex + Claude">Codex + Claude</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Button
-            variant="outline"
-            className="justify-between gap-2"
-            onClick={() => setShowSourceHealth((current) => !current)}
-          >
-            Wiring Points
-            <ArrowUpRight className="h-4 w-4" />
-          </Button>
-        </div>
+        <Button
+          onClick={() => navigate('/pos')}
+          className="hidden pos-tablet:inline-flex"
+        >
+          <Plus className="h-4 w-4 mr-1.5" />
+          Create New Order
+        </Button>
       </div>
 
-      {loading ? (
-        <DashboardSkeleton />
-      ) : (
-        <>
-          {snapshot && (
-            <Alert className="mb-5 border-primary/20 bg-primary/5">
-              <AlertCircle className="h-4 w-4 text-primary" />
-              <AlertTitle>Assumptions and TODO wiring</AlertTitle>
-              <AlertDescription className="space-y-1">
-                {snapshot.assumptions.map((item) => (
-                  <p key={item}>{item}</p>
-                ))}
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {showSourceHealth && snapshot && (
-            <ProjectSourceHealthPanel
-              sources={snapshot.sources}
-              onOpenSettings={() => navigate('/settings?section=project-sources')}
-            />
-          )}
-
-          <div className="mb-5 grid grid-cols-2 gap-3 pos-desktop:grid-cols-4">
+      {/* Stat Cards */}
+      <div className="flex gap-2.5 pos-tablet:gap-3 mb-4 pos-tablet:mb-5">
+        {loading ? (
+          <>
+            <Skeleton className="flex-1 h-[88px] rounded-lg" />
+            <Skeleton className="flex-1 h-[88px] rounded-lg" />
+            <Skeleton className="flex-1 h-[88px] rounded-lg" />
+          </>
+        ) : (
+          <>
             <StatCard
-              icon={<Boxes className="h-4 w-4" />}
-              label="Active Projects"
-              value={filteredKpis.activeProjects}
-              accent="primary"
-            />
-            <StatCard
-              icon={<Github className="h-4 w-4" />}
-              label="Open Work Items"
-              value={filteredKpis.openWorkItems}
-              accent="primary"
-            />
-            <StatCard
-              icon={<ShieldAlert className="h-4 w-4" />}
-              label="Blocked"
-              value={filteredKpis.blockedProjects}
+              icon={<Wallet className="h-4 w-4" />}
+              label="Total Earning"
+              value={formatCurrency(totalEarning)}
               accent="warning"
             />
             <StatCard
-              icon={<RefreshCcw className="h-4 w-4" />}
-              label="Updated This Week"
-              value={filteredKpis.updatedThisWeek}
+              icon={<TrendingUp className="h-4 w-4" />}
+              label="In Progress"
+              value={inProgressCount}
+              accent="primary"
+            />
+            <StatCard
+              icon={<CheckCircle className="h-4 w-4" />}
+              label="Ready to Serve"
+              value={servedCount}
               accent="success"
             />
+          </>
+        )}
+      </div>
+
+      {/* Order Kanban (desktop) / Filtered List (mobile) */}
+      {loading ? (
+        <div className="grid pos-tablet:grid-cols-3 gap-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="space-y-3">
+              <Skeleton className="h-5 w-32" />
+              <Skeleton className="h-24 rounded-lg" />
+              <Skeleton className="h-24 rounded-lg" />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <>
+          {/* Mobile: filter pills + flat list */}
+          <div className="pos-tablet:hidden">
+            <FilterPills
+              items={tabs}
+              active={filter}
+              onChange={setFilter}
+              className="mb-3"
+            />
+            <div className="space-y-2 pb-20">
+              {filtered.length === 0 ? (
+                <EmptyState
+                  title="No orders"
+                  description="Create a new order to get started."
+                />
+              ) : (
+                filtered.map((o) => (
+                  <OrderCardMini
+                    key={o.id}
+                    order={o}
+                    onClick={() => navigate(`/orders/${o.id}`)}
+                  />
+                ))
+              )}
+            </div>
           </div>
 
-          <div className="mb-5 grid gap-4 pos-desktop:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm font-bold">Delivery Signal Trend</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ChartContainer config={throughputChartConfig} className="h-[280px] w-full">
-                  <LineChart data={snapshot?.trends || []}>
-                    <CartesianGrid vertical={false} />
-                    <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} />
-                    <YAxis allowDecimals={false} tickLine={false} axisLine={false} />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <ChartLegend content={<ChartLegendContent />} />
-                    <Line
-                      type="monotone"
-                      dataKey="issuesTouched"
-                      stroke="var(--color-issuesTouched)"
-                      strokeWidth={2.5}
-                      dot={false}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="prsTouched"
-                      stroke="var(--color-prsTouched)"
-                      strokeWidth={2.5}
-                      dot={false}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="runsTouched"
-                      stroke="var(--color-runsTouched)"
-                      strokeWidth={2.5}
-                      dot={false}
-                    />
-                  </LineChart>
-                </ChartContainer>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm font-bold">Ownership Health Mix</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ChartContainer config={ownershipChartConfig} className="h-[280px] w-full">
-                  <BarChart data={snapshot?.breakdown || []}>
-                    <CartesianGrid vertical={false} />
-                    <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} />
-                    <YAxis allowDecimals={false} tickLine={false} axisLine={false} />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <ChartLegend content={<ChartLegendContent />} />
-                    <Bar dataKey="onTrack" stackId="health" fill="var(--color-onTrack)" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="atRisk" stackId="health" fill="var(--color-atRisk)" />
-                    <Bar dataKey="blocked" stackId="health" fill="var(--color-blocked)" />
-                  </BarChart>
-                </ChartContainer>
-              </CardContent>
-            </Card>
-          </div>
-
-          <Card>
-            <CardHeader className="flex flex-col gap-2 pos-tablet:flex-row pos-tablet:items-center pos-tablet:justify-between">
-              <div>
-                <CardTitle className="text-sm font-bold">Active Project Breakdown</CardTitle>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Headline view of current work, health, milestones, and next wiring targets.
-                </p>
+          {/* Tablet/Desktop: 3-column kanban */}
+          <div className="hidden pos-tablet:flex gap-3 pos-desktop:gap-4">
+            {(
+              [
+                ['In Progress', grouped.ip, 'warning'] as const,
+                ['Waiting for Payment', grouped.wp, 'primary'] as const,
+                ['Served', grouped.sv, 'success'] as const,
+              ]
+            ).map(([title, items, accent]) => (
+              <div key={title} className="flex-1 min-w-0">
+                <div className="flex justify-between items-center mb-2.5">
+                  <h3 className="text-sm font-bold text-foreground">{title}</h3>
+                  <span
+                    className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full
+                      ${accent === 'warning' ? 'text-warning bg-warning-tint' : ''}
+                      ${accent === 'primary' ? 'text-primary bg-primary-tint' : ''}
+                      ${accent === 'success' ? 'text-success bg-success-tint' : ''}
+                    `}
+                  >
+                    {items.length}
+                  </span>
+                </div>
+                {items.length === 0 ? (
+                  <EmptyState
+                    title="No orders"
+                    description={`No ${title.toLowerCase()} orders`}
+                    className="py-8"
+                  />
+                ) : (
+                  <div className="space-y-2">
+                    {items.map((o) => (
+                      <OrderCardMini
+                        key={o.id}
+                        order={o}
+                        onClick={() => navigate(`/orders/${o.id}`)}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
-              <Badge variant="outline" className="w-fit">
-                {visibleProjects.length} visible
-              </Badge>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Project</TableHead>
-                    <TableHead>Owner</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Workload</TableHead>
-                    <TableHead>Next Milestone</TableHead>
-                    <TableHead>Updated</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {visibleProjects.map((project) => (
-                    <TableRow key={project.id}>
-                      <TableCell className="min-w-[220px]">
-                        <div className="space-y-1">
-                          <div className="font-semibold text-foreground">{project.name}</div>
-                          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                            <span className="inline-flex items-center gap-1">
-                              <GitBranch className="h-3 w-3" />
-                              {project.workspace}
-                            </span>
-                            <span>{project.stage}</span>
-                            {project.currentVersion && <span>{project.currentVersion}</span>}
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">{project.agent}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="space-y-1">
-                          <HealthBadge health={project.health} />
-                          <div className="text-xs text-muted-foreground">
-                            {project.blockers} blocker{project.blockers === 1 ? '' : 's'}
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="min-w-[180px]">
-                        <div className="space-y-1 text-sm">
-                          <div className="font-medium text-foreground">
-                            {project.openIssues} issues / {project.openPullRequests} PRs
-                          </div>
-                          <div className="flex flex-wrap gap-1">
-                            {project.labels.length > 0 ? (
-                              project.labels.map((label) => (
-                                <Badge key={label} variant="outline" className="text-[10px]">
-                                  {label}
-                                </Badge>
-                              ))
-                            ) : (
-                              <span className="text-xs text-muted-foreground">No issue labels</span>
-                            )}
-                          </div>
-                          {project.runSummary && (
-                            <div className="text-xs text-muted-foreground">{project.runSummary}</div>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="min-w-[240px]">
-                        <div className="space-y-1">
-                          <div className="font-medium text-foreground">{project.nextMilestone}</div>
-                          <div className="text-xs text-muted-foreground">{project.notes}</div>
-                          {project.nextPhase && (
-                            <div className="text-xs text-muted-foreground">Next: {project.nextPhase}</div>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
-                        {formatDistanceToNow(new Date(project.updatedAt), { addSuffix: true })}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+            ))}
+          </div>
         </>
       )}
+
+      {/* Mobile FAB */}
+      <div className="pos-tablet:hidden fixed bottom-20 right-4 z-30">
+        <Button
+          size="lg"
+          className="rounded-full shadow-pos-lg h-14 w-14 p-0"
+          onClick={() => navigate('/pos')}
+          aria-label="Create new order"
+        >
+          <Plus className="h-6 w-6" />
+        </Button>
+      </div>
     </div>
   );
 }
 
-function DashboardSkeleton() {
+/* ── Mini order card for Dashboard kanban columns ── */
+
+function OrderCardMini({
+  order,
+  onClick,
+}: {
+  order: Order;
+  onClick: () => void;
+}) {
+  const status = mapStatus(order.status);
+  const customerName =
+    order.customer_name ||
+    (order.customer as any)?.first_name ||
+    'Walk-in';
+
   return (
-    <div className="space-y-4">
-      <Skeleton className="h-24 rounded-xl" />
-      <div className="grid grid-cols-2 gap-3 pos-desktop:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, index) => (
-          <Skeleton key={index} className="h-[88px] rounded-lg" />
-        ))}
+    <button
+      onClick={onClick}
+      className="w-full text-left bg-card rounded-lg border border-border p-3 hover:shadow-pos transition-shadow"
+    >
+      <div className="flex justify-between mb-1.5">
+        <span className="text-xs font-semibold">
+          <span className="text-primary">#{order.order_number}</span>
+          {' / '}
+          {order.order_type === 'dine_in' ? 'Dine In' : order.order_type === 'takeout' ? 'Take Away' : order.order_type}
+        </span>
+        <span className="text-[11px] text-muted-foreground">
+          {new Date(order.created_at).toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit',
+          })}
+        </span>
       </div>
-      <div className="grid gap-4 pos-desktop:grid-cols-2">
-        <Skeleton className="h-80 rounded-xl" />
-        <Skeleton className="h-80 rounded-xl" />
+      <div className="text-sm font-semibold text-foreground truncate mb-1">
+        {customerName}
       </div>
-      <Skeleton className="h-[360px] rounded-xl" />
-    </div>
+      <div className="flex justify-between items-center">
+        <span
+          className={`text-[11px] font-medium
+            ${status === 'In Progress' ? 'text-warning' : ''}
+            ${status === 'Served' ? 'text-success' : ''}
+            ${status === 'Waiting for Payment' ? 'text-primary' : ''}
+          `}
+        >
+          {status}
+        </span>
+        <span className="text-sm font-bold">
+          {formatCurrency(order.total_amount || 0)}
+        </span>
+      </div>
+    </button>
   );
-}
-
-function HealthBadge({ health }: { health: ProjectHealth }) {
-  const className =
-    health === 'On Track'
-      ? 'border-success/20 bg-success-tint text-success'
-      : health === 'At Risk'
-        ? 'border-warning/20 bg-warning-tint text-warning'
-        : 'border-destructive/20 bg-destructive-tint text-destructive';
-
-  return <Badge className={className}>{health}</Badge>;
 }
