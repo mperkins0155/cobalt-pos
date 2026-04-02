@@ -1,10 +1,3 @@
-// ============================================================
-// CloudPos — Command Palette
-// Phase 1B: Global Cmd+K search using shadcn Command (cmdk)
-// Searches: orders, customers, menu items, quick actions
-// Last modified: V0.7.0.0 — see VERSION_LOG.md
-// ============================================================
-
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -46,7 +39,6 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [items, setItems] = useState<Item[]>([]);
 
-  // Debounced search
   useEffect(() => {
     if (!open || !organization || query.length < 2) {
       setOrders([]);
@@ -57,62 +49,60 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
 
     const timer = setTimeout(async () => {
       try {
-        const [orderRes, customerRes, itemRes] = await Promise.allSettled([
+        const [orderResult, customerResult, itemResult] = await Promise.allSettled([
           OrderService.listOrders({ orgId: organization.id, limit: 5 }),
           CustomerService.search(organization.id, query, 5),
           CatalogService.getItems(organization.id),
         ]);
 
-        if (orderRes.status === 'fulfilled') {
-          const q = query.toLowerCase();
+        if (orderResult.status === 'fulfilled') {
+          const normalized = query.toLowerCase();
           setOrders(
-            orderRes.value.orders.filter(
-              (o) =>
-                o.order_number.toLowerCase().includes(q) ||
-                (o.customer_name || '').toLowerCase().includes(q)
-            ).slice(0, 5)
+            orderResult.value.orders
+              .filter(
+                (order) =>
+                  order.order_number.toLowerCase().includes(normalized) ||
+                  (order.customer_name || '').toLowerCase().includes(normalized)
+              )
+              .slice(0, 5)
           );
         }
-        if (customerRes.status === 'fulfilled') {
-          setCustomers(customerRes.value.slice(0, 5));
+
+        if (customerResult.status === 'fulfilled') {
+          setCustomers(customerResult.value.slice(0, 5));
         }
-        if (itemRes.status === 'fulfilled') {
-          const q = query.toLowerCase();
+
+        if (itemResult.status === 'fulfilled') {
+          const normalized = query.toLowerCase();
           setItems(
-            itemRes.value
+            itemResult.value
               .filter(
-                (i) =>
-                  i.name.toLowerCase().includes(q) ||
-                  (i.sku || '').toLowerCase().includes(q)
+                (item) =>
+                  item.name.toLowerCase().includes(normalized) ||
+                  (item.sku || '').toLowerCase().includes(normalized)
               )
               .slice(0, 5)
           );
         }
       } catch {
-        // Silent — search is best-effort
+        // Search is best-effort only.
       }
     }, 300);
 
     return () => clearTimeout(timer);
   }, [open, organization, query]);
 
-  const runAction = useCallback(
-    (path: string) => {
-      onOpenChange(false);
-      setQuery('');
-      navigate(path);
-    },
-    [navigate, onOpenChange]
-  );
+  const runAction = useCallback((path: string) => {
+    onOpenChange(false);
+    setQuery('');
+    navigate(path);
+  }, [navigate, onOpenChange]);
 
-  const handleSelect = useCallback(
-    (value: string) => {
-      onOpenChange(false);
-      setQuery('');
-      navigate(value);
-    },
-    [navigate, onOpenChange]
-  );
+  const handleSelect = useCallback((path: string) => {
+    onOpenChange(false);
+    setQuery('');
+    navigate(path);
+  }, [navigate, onOpenChange]);
 
   return (
     <CommandDialog open={open} onOpenChange={onOpenChange}>
@@ -124,7 +114,6 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
       <CommandList>
         <CommandEmpty>No results found.</CommandEmpty>
 
-        {/* Quick Actions — always visible */}
         <CommandGroup heading="Quick Actions">
           <CommandItem onSelect={() => runAction('/pos')}>
             <Plus className="mr-2 h-4 w-4 text-primary" />
@@ -152,24 +141,23 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
           </CommandItem>
         </CommandGroup>
 
-        {/* Search results — only when query has content */}
         {orders.length > 0 && (
           <>
             <CommandSeparator />
             <CommandGroup heading="Orders">
-              {orders.map((o) => (
+              {orders.map((order) => (
                 <CommandItem
-                  key={o.id}
-                  value={`order-${o.order_number}`}
-                  onSelect={() => handleSelect(`/orders/${o.id}`)}
+                  key={order.id}
+                  value={`order-${order.order_number}`}
+                  onSelect={() => handleSelect(`/orders/${order.id}`)}
                 >
                   <ClipboardList className="mr-2 h-4 w-4 text-muted-foreground" />
-                  <span className="font-mono text-sm">#{o.order_number}</span>
-                  <span className="ml-2 text-muted-foreground text-sm">
-                    {o.customer_name || 'Walk-in'}
+                  <span className="font-mono text-sm">#{order.order_number}</span>
+                  <span className="ml-2 text-sm text-muted-foreground">
+                    {order.customer_name || 'Walk-in'}
                   </span>
-                  <span className="ml-auto text-xs text-muted-foreground capitalize">
-                    {o.status}
+                  <span className="ml-auto text-xs capitalize text-muted-foreground">
+                    {order.status}
                   </span>
                 </CommandItem>
               ))}
@@ -181,18 +169,18 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
           <>
             <CommandSeparator />
             <CommandGroup heading="Customers">
-              {customers.map((c) => (
+              {customers.map((customer) => (
                 <CommandItem
-                  key={c.id}
-                  value={`customer-${c.first_name}-${c.last_name}`}
-                  onSelect={() => handleSelect(`/customers/${c.id}`)}
+                  key={customer.id}
+                  value={`customer-${customer.first_name}-${customer.last_name}`}
+                  onSelect={() => handleSelect(`/customers/${customer.id}`)}
                 >
                   <Users className="mr-2 h-4 w-4 text-muted-foreground" />
                   <span className="text-sm">
-                    {[c.first_name, c.last_name].filter(Boolean).join(' ')}
+                    {[customer.first_name, customer.last_name].filter(Boolean).join(' ')}
                   </span>
-                  {c.phone && (
-                    <span className="ml-2 text-xs text-muted-foreground">{c.phone}</span>
+                  {customer.phone && (
+                    <span className="ml-2 text-xs text-muted-foreground">{customer.phone}</span>
                   )}
                 </CommandItem>
               ))}

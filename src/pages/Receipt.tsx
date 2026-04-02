@@ -1,60 +1,95 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { Check, Home, Printer, Send } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { appEnv } from '@/lib/appEnv';
 import { OrderService } from '@/services/orders';
-import { formatCurrency } from '@/lib/calculations';
+import { Receipt as ReceiptCard } from '@/components/Receipt';
 import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
-import { Check, Printer, Send, Home } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 import type { Order } from '@/types/database';
 
-export default function Receipt() {
+export default function ReceiptPage() {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
+  const { organization } = useAuth();
   const [order, setOrder] = useState<Order | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!orderId) return;
-    OrderService.getOrderWithDetails(orderId).then(setOrder).catch(console.error);
+    OrderService.getOrderWithDetails(orderId)
+      .then(setOrder)
+      .catch(console.error)
+      .finally(() => setLoading(false));
   }, [orderId]);
 
-  if (!order) return <div className="min-h-screen flex items-center justify-center"><p>Loading...</p></div>;
+  if (loading) {
+    return (
+      <div className="flex-1 overflow-y-auto bg-background p-6">
+        <div className="mx-auto max-w-md space-y-4">
+          <Skeleton className="h-20 rounded-2xl" />
+          <Skeleton className="h-[520px] rounded-2xl" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!order) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <p className="text-sm text-muted-foreground">Receipt not found.</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
-      <div className="max-w-sm w-full space-y-6 text-center">
-        <div className="bg-green-100 rounded-full p-4 w-16 h-16 mx-auto flex items-center justify-center">
-          <Check className="h-8 w-8 text-green-600" />
+    <div className="flex-1 overflow-y-auto bg-background p-4 pos-tablet:p-5 pos-desktop:px-7 pos-desktop:py-6">
+      <div className="mx-auto max-w-3xl space-y-6">
+        <div className="no-print text-center">
+          <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-success-tint">
+            <Check className="h-8 w-8 text-success" />
+          </div>
+          <h1 className="text-2xl font-bold text-foreground">Payment Complete</h1>
+          <p className="text-sm text-muted-foreground">Order #{order.order_number}</p>
         </div>
-        <div>
-          <h1 className="text-2xl font-bold">Payment Complete</h1>
-          <p className="text-muted-foreground">Order #{order.order_number}</p>
-        </div>
-        <div className="bg-card border rounded-lg p-4 text-left space-y-1">
-          {(order.lines || []).map((line: any) => (
-            <div key={line.id} className="flex justify-between text-sm">
-              <span>{line.quantity}x {line.item_name}</span>
-              <span>{formatCurrency(line.subtotal)}</span>
+
+        <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+          <ReceiptCard order={order} organization={organization} />
+
+          <aside className="no-print space-y-3">
+            <div className="rounded-2xl border border-border bg-card p-4 shadow-pos">
+              <h2 className="mb-2 text-sm font-semibold text-foreground">Receipt Actions</h2>
+              <div className="space-y-2">
+                <Button className="w-full" onClick={() => window.print()}>
+                  <Printer className="mr-2 h-4 w-4" />
+                  Print Receipt
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  disabled={!appEnv.emailReceiptsEnabled}
+                  title={
+                    appEnv.emailReceiptsEnabled
+                      ? 'Email receipt'
+                      : 'Email delivery is not enabled in this build yet'
+                  }
+                >
+                  <Send className="mr-2 h-4 w-4" />
+                  {appEnv.emailReceiptsEnabled ? 'Email Receipt' : 'Email Receipt Soon'}
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => navigate('/pos', { replace: true })}
+                >
+                  <Home className="mr-2 h-4 w-4" />
+                  New Sale
+                </Button>
+              </div>
             </div>
-          ))}
-          <Separator className="my-2" />
-          <div className="flex justify-between text-sm"><span>Subtotal</span><span>{formatCurrency(order.subtotal_amount)}</span></div>
-          {order.discount_amount > 0 && <div className="flex justify-between text-sm text-green-600"><span>Discount</span><span>-{formatCurrency(order.discount_amount)}</span></div>}
-          <div className="flex justify-between text-sm"><span>Tax</span><span>{formatCurrency(order.tax_amount)}</span></div>
-          {order.tip_amount > 0 && <div className="flex justify-between text-sm"><span>Tip</span><span>{formatCurrency(order.tip_amount)}</span></div>}
-          <Separator className="my-2" />
-          <div className="flex justify-between font-bold"><span>Total</span><span>{formatCurrency(order.total_amount)}</span></div>
+          </aside>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" className="flex-1" onClick={() => window.print()}>
-            <Printer className="h-4 w-4 mr-1" />Print
-          </Button>
-          <Button variant="outline" className="flex-1">
-            <Send className="h-4 w-4 mr-1" />Email
-          </Button>
-        </div>
-        <Button className="w-full h-12" onClick={() => navigate('/pos', { replace: true })}>
-          <Home className="h-4 w-4 mr-2" />New Sale
-        </Button>
       </div>
     </div>
   );

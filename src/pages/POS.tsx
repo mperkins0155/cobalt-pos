@@ -12,16 +12,24 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/hooks/useCart';
 import { CatalogService } from '@/services/catalog';
 import { formatCurrency } from '@/lib/calculations';
+import type { CartItemModifier } from '@/types/cart';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { SearchBar, FilterPills, EmptyState } from '@/components/pos';
+import { SearchBar, FilterPills, EmptyState, ModifierModal } from '@/components/pos';
 import {
-  ShoppingCart, Minus, Plus, Trash2, Tag, Package, Save,
+  ShoppingCart,
+  Minus,
+  Plus,
+  Trash2,
+  Tag,
+  Package,
 } from 'lucide-react';
-import type { Category, Item } from '@/types/database';
+import type { Category, Item, ModifierGroupWithOptions } from '@/types/database';
+
+type ItemWithModifiers = Item & { modifier_groups: ModifierGroupWithOptions[] };
 
 export default function POS() {
   const navigate = useNavigate();
@@ -34,10 +42,10 @@ export default function POS() {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [mobileCartOpen, setMobileCartOpen] = useState(false);
+  const [modifierItem, setModifierItem] = useState<ItemWithModifiers | null>(null);
   const barcodeBuffer = useRef('');
   const barcodeTimer = useRef<ReturnType<typeof setTimeout>>();
 
-  // Load catalog
   useEffect(() => {
     if (!organization) return;
     const load = async () => {
@@ -54,23 +62,24 @@ export default function POS() {
         setLoading(false);
       }
     };
-    load();
+    void load();
   }, [organization]);
 
-  // Barcode scanner (keyboard wedge)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement)?.tagName)) return;
       if (e.key === 'Enter' && barcodeBuffer.current.length >= 4) {
         const barcode = barcodeBuffer.current;
         barcodeBuffer.current = '';
-        handleBarcodeScan(barcode);
+        void handleBarcodeScan(barcode);
         return;
       }
       if (e.key.length === 1) {
         barcodeBuffer.current += e.key;
         clearTimeout(barcodeTimer.current);
-        barcodeTimer.current = setTimeout(() => { barcodeBuffer.current = ''; }, 100);
+        barcodeTimer.current = setTimeout(() => {
+          barcodeBuffer.current = '';
+        }, 100);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -96,9 +105,13 @@ export default function POS() {
     try {
       const fullItem = await CatalogService.getItemWithModifiers(item.id);
       if (fullItem.modifier_groups.length > 0) {
-        // TODO Phase 4: Open ModifierModal
+        setModifierItem(fullItem);
+        return;
       }
-    } catch { /* Fall through */ }
+    } catch {
+      // If modifier loading fails, still allow adding the base item.
+    }
+
     cart.addItem({
       item_id: item.id,
       item_name: item.name,
@@ -107,42 +120,65 @@ export default function POS() {
     });
   }, [cart]);
 
+  const handleAddWithModifiers = useCallback(
+    ({ modifiers, quantity }: { modifiers: CartItemModifier[]; quantity: number }) => {
+      if (!modifierItem) return;
+      cart.addItem({
+        item_id: modifierItem.id,
+        item_name: modifierItem.name,
+        unit_price: modifierItem.base_price,
+        quantity,
+        modifiers,
+        is_taxable: modifierItem.taxable,
+      });
+      setModifierItem(null);
+    },
+    [cart, modifierItem]
+  );
+
   const handleCheckout = () => {
     if (cart.isEmpty) return;
     navigate('/pos/checkout');
   };
 
-  // Category filter tabs
   const categoryTabs = [
     { key: 'all', label: 'All', count: items.length },
-    ...categories.map((c) => ({
-      key: c.id,
-      label: c.name,
-      count: items.filter((i) => i.category_id === c.id).length,
+    ...categories.map((category) => ({
+      key: category.id,
+      label: category.name,
+      count: items.filter((item) => item.category_id === category.id).length,
     })),
   ];
 
-  // Filter items
   const filteredItems = items.filter((item) => {
-    const matchesCat = selectedCategory === 'all' || item.category_id === selectedCategory;
-    const matchesSearch = !searchQuery ||
+    const matchesCategory =
+      selectedCategory === 'all' || item.category_id === selectedCategory;
+    const matchesSearch =
+      !searchQuery ||
       item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.sku?.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCat && matchesSearch;
+
+    return matchesCategory && matchesSearch;
   });
 
-  // ── Cart Panel (reused in desktop sidebar + mobile sheet) ──
   const CartPanel = () => (
-    <div className="flex flex-col h-full">
-      <div className="p-3 border-b border-border flex items-center justify-between">
+    <div className="flex h-full flex-col">
+      <div className="flex items-center justify-between border-b border-border p-3">
         <h2 className="text-sm font-bold text-foreground">
           Order Details
           {cart.itemCount > 0 && (
-            <Badge variant="secondary" className="ml-2 text-[10px]">{cart.itemCount}</Badge>
+            <Badge variant="secondary" className="ml-2 text-[10px]">
+              {cart.itemCount}
+            </Badge>
           )}
         </h2>
         {cart.items.length > 0 && (
-          <Button variant="ghost" size="sm" onClick={cart.clearCart} className="text-xs h-7 text-destructive hover:text-destructive">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={cart.clearCart}
+            className="h-7 text-xs text-destructive hover:text-destructive"
+          >
             Reset
           </Button>
         )}
@@ -157,40 +193,46 @@ export default function POS() {
             className="py-10"
           />
         ) : (
-          <div className="p-2.5 space-y-1.5">
+          <div className="space-y-1.5 p-2.5">
             {cart.items.map((item) => (
-              <div key={item.id} className="bg-card border border-border rounded-lg p-2.5">
-                <div className="flex justify-between items-start gap-2">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-foreground truncate">{item.item_name}</p>
+              <div key={item.id} className="rounded-lg border border-border bg-card p-2.5">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-foreground">
+                      {item.item_name}
+                    </p>
                     {item.variant_name && (
                       <p className="text-xs text-muted-foreground">{item.variant_name}</p>
                     )}
                     {item.modifiers.length > 0 && (
                       <p className="text-xs text-muted-foreground">
-                        {item.modifiers.map((m) => m.option_name).join(', ')}
+                        {item.modifiers.map((modifier) => modifier.option_name).join(', ')}
                       </p>
                     )}
-                    {item.notes && (
-                      <p className="text-xs text-primary italic">{item.notes}</p>
-                    )}
+                    {item.notes && <p className="text-xs italic text-primary">{item.notes}</p>}
                   </div>
-                  <p className="text-sm font-bold text-foreground whitespace-nowrap">
+                  <p className="whitespace-nowrap text-sm font-bold text-foreground">
                     {formatCurrency(item.line_total)}
                   </p>
                 </div>
-                <div className="flex items-center justify-between mt-2">
+                <div className="mt-2 flex items-center justify-between">
                   <div className="flex items-center gap-1">
                     <Button
-                      variant="outline" size="icon" className="h-7 w-7"
+                      variant="outline"
+                      size="icon"
+                      className="h-7 w-7"
                       onClick={() => cart.updateQuantity(item.id, item.quantity - 1)}
                       aria-label="Decrease quantity"
                     >
                       <Minus className="h-3 w-3" />
                     </Button>
-                    <span className="w-8 text-center text-sm font-semibold tabular-nums">{item.quantity}</span>
+                    <span className="w-8 text-center text-sm font-semibold tabular-nums">
+                      {item.quantity}
+                    </span>
                     <Button
-                      variant="outline" size="icon" className="h-7 w-7"
+                      variant="outline"
+                      size="icon"
+                      className="h-7 w-7"
                       onClick={() => cart.updateQuantity(item.id, item.quantity + 1)}
                       aria-label="Increase quantity"
                     >
@@ -198,7 +240,9 @@ export default function POS() {
                     </Button>
                   </div>
                   <Button
-                    variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive"
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-destructive hover:text-destructive"
                     onClick={() => cart.removeItem(item.id)}
                     aria-label="Remove item"
                   >
@@ -211,9 +255,8 @@ export default function POS() {
         )}
       </ScrollArea>
 
-      {/* Totals + Charge */}
       {cart.items.length > 0 && (
-        <div className="border-t border-border p-3 space-y-1.5">
+        <div className="space-y-1.5 border-t border-border p-3">
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Subtotal</span>
             <span className="text-foreground">{formatCurrency(cart.totals.subtotal)}</span>
@@ -228,11 +271,11 @@ export default function POS() {
             <span className="text-muted-foreground">Tax</span>
             <span className="text-foreground">{formatCurrency(cart.totals.tax_amount)}</span>
           </div>
-          <div className="flex justify-between font-bold text-base border-t border-border pt-2">
+          <div className="flex justify-between border-t border-border pt-2 text-base font-bold">
             <span>Total</span>
             <span>{formatCurrency(cart.totals.total)}</span>
           </div>
-          <Button className="w-full mt-2 h-12 text-base font-bold" onClick={handleCheckout}>
+          <Button className="mt-2 h-12 w-full text-base font-bold" onClick={handleCheckout}>
             Charge {formatCurrency(cart.totals.total)}
           </Button>
         </div>
@@ -242,11 +285,9 @@ export default function POS() {
 
   // ── Main layout ──
   return (
-    <div className="flex-1 flex overflow-hidden">
-      {/* Left: Product grid */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Search + categories */}
-        <div className="p-3 pos-tablet:p-4 space-y-2.5 border-b border-border shrink-0">
+    <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <div className="shrink-0 space-y-2.5 border-b border-border p-3 pos-tablet:p-4">
           <SearchBar
             value={searchQuery}
             onChange={setSearchQuery}
@@ -259,41 +300,46 @@ export default function POS() {
           />
         </div>
 
-        {/* Items grid */}
         <ScrollArea className="flex-1 p-3 pos-tablet:p-4">
           {loading ? (
-            <div className="grid grid-cols-2 pos-tablet:grid-cols-3 pos-desktop:grid-cols-4 gap-2.5">
-              {Array.from({ length: 12 }).map((_, i) => (
-                <Skeleton key={i} className="h-28 rounded-xl" />
+            <div className="grid grid-cols-2 gap-2.5 pos-tablet:grid-cols-3 pos-desktop:grid-cols-4">
+              {Array.from({ length: 12 }).map((_, index) => (
+                <Skeleton key={index} className="h-28 rounded-xl" />
               ))}
             </div>
           ) : filteredItems.length === 0 ? (
             <EmptyState
               icon={<Package className="h-10 w-10" />}
               title="No items found"
-              description={searchQuery ? `No results for "${searchQuery}"` : 'Add items in the catalog.'}
+              description={
+                searchQuery ? `No results for "${searchQuery}"` : 'Add items in the catalog.'
+              }
             />
           ) : (
-            <div className="grid grid-cols-2 pos-tablet:grid-cols-3 pos-desktop:grid-cols-4 gap-2.5 pb-20 lg:pb-4">
+            <div className="grid grid-cols-2 gap-2.5 pb-20 pos-tablet:grid-cols-3 pos-desktop:grid-cols-4 lg:pb-4">
               {filteredItems.map((item) => (
                 <button
                   key={item.id}
-                  className="bg-card border border-border rounded-xl p-3 text-left hover:border-primary hover:shadow-pos transition-all active:scale-[0.98]"
-                  onClick={() => handleAddToCart(item)}
+                  className="rounded-xl border border-border bg-card p-3 text-left transition-all hover:border-primary hover:shadow-pos active:scale-[0.98]"
+                  onClick={() => {
+                    void handleAddToCart(item);
+                  }}
                 >
                   {item.image_url ? (
                     <img
                       src={item.image_url}
                       alt={item.name}
-                      className="w-full h-16 object-cover rounded-lg mb-2"
+                      className="mb-2 h-16 w-full rounded-lg object-cover"
                     />
                   ) : (
-                    <div className="w-full h-16 bg-muted rounded-lg mb-2 flex items-center justify-center">
+                    <div className="mb-2 flex h-16 w-full items-center justify-center rounded-lg bg-muted">
                       <Tag className="h-5 w-5 text-muted-foreground" />
                     </div>
                   )}
-                  <p className="text-sm font-semibold text-foreground truncate">{item.name}</p>
-                  <p className="text-sm font-bold text-primary">{formatCurrency(item.base_price)}</p>
+                  <p className="truncate text-sm font-semibold text-foreground">{item.name}</p>
+                  <p className="text-sm font-bold text-primary">
+                    {formatCurrency(item.base_price)}
+                  </p>
                 </button>
               ))}
             </div>
@@ -301,18 +347,16 @@ export default function POS() {
         </ScrollArea>
       </div>
 
-      {/* Right: Cart sidebar (desktop) */}
-      <div className="w-80 xl:w-96 border-l border-border hidden lg:flex flex-col bg-card">
+      <div className="hidden w-80 flex-col border-l border-border bg-card lg:flex xl:w-96">
         <CartPanel />
       </div>
 
-      {/* Mobile Cart FAB */}
       {cart.itemCount > 0 && (
-        <div className="lg:hidden fixed bottom-20 left-4 right-4 z-30">
+        <div className="fixed bottom-20 left-4 right-4 z-30 lg:hidden">
           <Sheet open={mobileCartOpen} onOpenChange={setMobileCartOpen}>
             <SheetTrigger asChild>
-              <Button className="w-full h-14 text-base font-bold shadow-pos-lg rounded-xl">
-                <ShoppingCart className="h-5 w-5 mr-2" />
+              <Button className="h-14 w-full rounded-xl text-base font-bold shadow-pos-lg">
+                <ShoppingCart className="mr-2 h-5 w-5" />
                 View Cart ({cart.itemCount}) — {formatCurrency(cart.totals.total)}
               </Button>
             </SheetTrigger>
@@ -322,6 +366,13 @@ export default function POS() {
           </Sheet>
         </div>
       )}
+
+      <ModifierModal
+        item={modifierItem}
+        open={modifierItem !== null}
+        onClose={() => setModifierItem(null)}
+        onAddToCart={handleAddWithModifiers}
+      />
     </div>
   );
 }

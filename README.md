@@ -1,67 +1,78 @@
-# Cobalt POS — Square-Comparable Point of Sale System
+# Cobalt POS
 
-React + TypeScript + Supabase + HelcimPay.js
+CloudPos-style restaurant POS built with React, TypeScript, Vite, Supabase, and Helcim edge-function integration points.
 
-## Quick Start
+## Current status
+
+- `PROGRESS.md` is the source of truth for implementation status.
+- The repo is currently at `V1.3.0.0-Production`.
+- Foundation, navigation, POS/checkout restyle, command palette, KDS intelligence, reporting tables/charts, modifier groups, receipts, and finance hardening are implemented.
+- Card checkout UI is still intentionally disabled by default until the Helcim browser flow is fully wired.
+- Email receipt delivery is also disabled by default; print receipts are live.
+
+## What is working
+
+- Auth, tenancy, onboarding, role guards, and AppShell navigation
+- POS register, cart math, checkout, saved tickets, orders, refunds, receipts, and closeout
+- Catalog, modifiers, inventory, customers, reservations, suppliers, quotations, purchasing, and expenses
+- Kitchen display with React Query refresh, Supabase invalidation, and sound controls
+- Reports with reusable tables and lazy-loaded charts
+- Deterministic financial calculations with banker’s rounding and test coverage
+
+## Local development
 
 ```bash
 npm install
-cp .env.example .env   # Add Supabase credentials
-npm run dev             # Start dev server
-npm test                # Run 26 calculation tests
-npm run build           # Production build
+cp .env.example .env
+npm run dev
 ```
 
-## Architecture
+Required env vars:
 
-| Layer | Stack |
-|-------|-------|
-| Frontend | React 18, TypeScript, Vite, Tailwind CSS, shadcn/ui |
-| Backend | Supabase (Postgres 15+, Auth, RLS, Edge Functions) |
-| Payments | HelcimPay.js (card), Cash, Other (Venmo/CashApp/Zelle) |
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
 
-## EPIC Coverage
+Useful app env vars:
 
-| EPIC | Feature | Status |
-|------|---------|--------|
-| A | Tenancy, Auth, Roles, Audit | ✅ |
-| B | Catalog, Modifiers, Variants, Barcodes | ✅ |
-| C | Checkout, Orders, Saved Carts | ✅ |
-| D | Taxes, Discounts, Promotions | ✅ |
-| E | Payments: Card/Cash/Other/Split/Tips | ✅ |
-| F | Refunds, Voids, Returns | ✅ |
-| G | Customers, Receipts, CRM | ✅ |
-| H | Inventory | ✅ |
-| I | Multi-Location | ✅ |
-| J | Offline Mode | 🔲 Deferred |
-| K | Reporting, Closeout, Cash Drawer | ✅ |
-| L | Hardware | ✅ |
-| M | Processor Ops | ✅ |
+- `VITE_APP_NAME`
+- `VITE_APP_URL`
+- `VITE_BASE_PATH`
+- `VITE_ENABLE_CARD_PAYMENTS`
+- `VITE_ENABLE_EMAIL_RECEIPTS`
 
-## Database: 35+ Tables
+## Validation
 
-Schema in `supabase/migrations/001_core_schema.sql` with full RLS policies.
+```bash
+npm run build
+npx tsc --noEmit
+npm run lint
+npm test
+```
 
-## Key Files
+## GitHub Pages deployment
 
-- `src/lib/calculations.ts` — Deterministic money math (26 tests)
-- `src/hooks/useCart.ts` — Cart with discount, tax, tip, split tender
-- `src/services/` — Orders, payments, refunds, customers, catalog, inventory, reporting, audit
-- `src/contexts/AuthContext.tsx` — Auth + org + location + tax/tip settings
-- `supabase/functions/` — Helcim edge functions (init, validate, webhook)
+The repo includes a GitHub Pages workflow at `.github/workflows/deploy-pages.yml`.
 
-## Routes
+It expects:
 
-| Path | Description |
-|------|-------------|
-| `/pos` | Main POS grid |
-| `/pos/checkout` | Tip → pay → receipt |
-| `/pos/tickets` | Open tabs |
-| `/orders` | Order history |
-| `/orders/:id` | Detail + void/refund |
-| `/customers` | Customer directory |
-| `/catalog` | Item management (Manager+) |
-| `/inventory` | Stock management (Manager+) |
-| `/reports` | Sales dashboard (Manager+) |
-| `/reports/closeout` | Z Report (Manager+) |
-| `/settings` | Business settings (Manager+) |
+- branch: `master`
+- Pages base path: `/cobalt-pos-2026-03-04/`
+- `VITE_SUPABASE_ANON_KEY` configured as a GitHub Actions repository variable
+
+Equivalent local Pages build in PowerShell:
+
+```powershell
+$env:VITE_BASE_PATH='/cobalt-pos-2026-03-04/'
+$env:VITE_ENABLE_CARD_PAYMENTS='false'
+$env:VITE_ENABLE_EMAIL_RECEIPTS='false'
+npm run build:pages
+```
+
+## Remaining work before true production launch
+
+1. Wire the in-browser Helcim card payment UI and enable `VITE_ENABLE_CARD_PAYMENTS`.
+2. Add real email receipt delivery and enable `VITE_ENABLE_EMAIL_RECEIPTS`.
+3. Run end-to-end QA with live Supabase and processor credentials across cashier, manager, and owner roles.
+4. Tighten permissive dev-oriented RLS policies before broad rollout.
+
+For live handoff and role-based verification, use `PRODUCTION_QA_CHECKLIST.md`.

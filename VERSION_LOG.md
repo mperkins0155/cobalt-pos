@@ -5,33 +5,221 @@
 
 ---
 
+## V1.4.0.0-Production
+**Timestamp:** 2026-04-02T00:25:00Z
+**Triggered By:** deployment hardening
+**Phase:** 8 — production integration QA + deployment hardening
+**Files Changed:**
+  - .github/workflows/deploy-pages.yml (MODIFIED)
+  - .env.example (MODIFIED)
+  - README.md (MODIFIED — rewritten)
+  - package.json (MODIFIED)
+  - vite.config.ts (MODIFIED)
+  - src/lib/appEnv.ts (NEW)
+  - src/lib/supabase.ts (MODIFIED)
+  - src/pages/Checkout.tsx (MODIFIED)
+  - src/pages/Receipt.tsx (MODIFIED)
+  - PROGRESS.md (MODIFIED)
+  - VERSION_LOG.md (MODIFIED)
+**Summary:** Hardened the deployment handoff and environment contract for GitHub Pages by moving build base-path and feature readiness into explicit env flags, adding a Pages-equivalent local build path, and bringing the repository documentation up to the actual branch state.
+**Detailed Changes:**
+  - app env: introduced a centralized `appEnv` helper for Supabase config, app URL/base path, and deploy-time feature flags.
+  - deployment workflow: GitHub Pages build now passes `VITE_BASE_PATH` and explicit card/email feature flags instead of embedding the base path in the build command.
+  - runtime gating: checkout card readiness and receipt email readiness now come from env flags rather than hidden code constants.
+  - repo docs: README rewritten to reflect the current implementation, validation commands, Pages deployment contract, and remaining production-launch work.
+  - build parity: added `build:pages` and verified a Pages-equivalent build locally using the repo’s expected base path.
+**Pre-State:** The repo still relied on implicit deployment assumptions: Pages base path was passed ad hoc in the workflow, runtime feature readiness lived in code constants, and README status/documentation lagged behind the actual branch state.
+**Post-State:** Deployment assumptions are explicit, reproducible, and documented. The branch now has a cleaner path for Pages deployment and a safer handoff for later live integration QA.
+**Verification:** `npm run build` passed, `npm run build:pages` passed with `VITE_BASE_PATH=/cobalt-pos-2026-03-04/`, `npx tsc --noEmit` passed, `npm run lint` passed, `npm test` passed (38/38).
+**Next Target:** V1.5.0.0 — Phase 9 (live Supabase/Helcim integration QA)
+
+---
+
+## V1.3.0.0-Production
+**Timestamp:** 2026-04-01T23:50:00Z
+**Triggered By:** launch hardening
+**Phase:** 7 — UX polish + launch hardening
+**Files Changed:**
+  - src/pages/Checkout.tsx (MODIFIED)
+  - src/pages/Receipt.tsx (MODIFIED)
+  - PROGRESS.md (MODIFIED)
+  - VERSION_LOG.md (MODIFIED)
+**Summary:** Removed two misleading operator-facing paths during the launch-hardening sweep: card payments no longer present as a live checkout option when the Helcim UI is not wired, and receipt email is now shown as unavailable instead of firing a stub action.
+**Detailed Changes:**
+  - checkout: card tender is disabled behind an explicit readiness flag, carries a clear “Soon” state, and shows a warning message telling staff to use cash or another payment app for live sales.
+  - receipt: the email receipt button is now an honest disabled action with explanatory tooltip text instead of a fake success-path stub.
+  - hardening sweep: re-ran the full build, typecheck, lint, and tests after the operator-flow cleanup.
+**Pre-State:** Checkout still let users choose card even though that path always failed with a “UI integration pending” error, and the receipt page still exposed a stubbed email action.
+**Post-State:** Cashiers no longer hit avoidable dead ends in the live payment flow, and the receipt screen no longer suggests a capability that is not actually shipped.
+**Verification:** `npm run build` passed, `npx tsc --noEmit` passed, `npm run lint` passed, `npm test` passed (38/38).
+**Next Target:** V1.4.0.0 — Phase 8 (production integration QA + deployment hardening)
+
+---
+
+## V1.2.0.0-Production
+**Timestamp:** 2026-04-01T23:10:00Z
+**Triggered By:** feature addition
+**Phase:** 6 — Financial hardening
+**Files Changed:**
+  - src/lib/calculations.ts (MODIFIED)
+  - src/lib/calculations.test.ts (MODIFIED)
+  - src/pages/Checkout.tsx (MODIFIED)
+  - PROGRESS.md (MODIFIED)
+  - VERSION_LOG.md (MODIFIED)
+**Summary:** Hardened monetary calculations around banker’s rounding and aligned checkout cash input formatting with the same finance helpers used by the ledger and tests.
+**Detailed Changes:**
+  - calculations: replaced half-up rounding with banker’s rounding, retained the `round2` API as the shared 2-decimal entry point, and added `calcSum`, `mergeAndSum`, and `average` helpers adapted from the PWA reference bundle.
+  - finance tests: expanded calculations coverage from 26 to 31 assertions, including explicit bank-rounding edge cases (`0.005`, `0.015`, `0.025`, `0.035`) and aggregation helper tests.
+  - checkout: removed the remaining `.toFixed(2)` shortcuts for exact cash and placeholder values so cashier-facing money strings now use the hardened calculation path.
+  - verification sweep: caught and cleared a transient Dashboard JSX build break during the sweep, then re-ran the full validation baseline.
+**Pre-State:** The repo still used half-up rounding in `round2`, two checkout cash-entry strings bypassed the shared money helpers, and the calculation utilities did not yet include the aggregation helpers referenced by the broader roadmap.
+**Post-State:** Finance math is consistent across checkout, cart math, services, and tests. The production build, typecheck, lint, and test baseline is green on top of the hardening pass.
+**Verification:** `npm run build` passed, `npx tsc --noEmit` passed, `npm run lint` passed, `npm test` passed (38/38).
+**Next Target:** V1.3.0.0 — Phase 7 (UX polish + launch hardening)
+
+---
+
+## V1.1.0.0-Production
+**Timestamp:** 2026-04-01T22:43:00Z
+**Triggered By:** feature addition
+**Phase:** 5 — Receipt & printing
+**Files Changed:**
+  - src/components/Receipt.tsx (NEW)
+  - src/lib/receiptFormatter.ts (NEW)
+  - src/pages/Receipt.tsx (MODIFIED — full replacement)
+  - src/index.css (MODIFIED — print media rules)
+  - PROGRESS.md (MODIFIED)
+  - VERSION_LOG.md (MODIFIED)
+**Summary:** Replaced the placeholder payment success screen with a reusable receipt component and print-focused receipt route. Receipt output now includes business header, order metadata, line items with modifiers, totals, payments, tendered/change, and thermal-style print CSS.
+**Detailed Changes:**
+  - Receipt component: reusable receipt view with organization details, line items, modifiers, totals, payment labels, and footer text.
+  - receiptFormatter: central helpers for receipt date formatting, organization address rendering, payment labels, tendered/change totals, and money formatting.
+  - Receipt page: upgraded to a proper post-payment experience with print, email-stub, and new-sale actions alongside the printable receipt card.
+  - Print CSS: added `@media print` rules for `.receipt` and `.no-print`, targeting 80mm thermal-style output with print-safe layout.
+**Pre-State:** Receipt route was a simple success panel with inline totals and a raw `window.print()` button. No reusable receipt component or print-specific formatting existed.
+**Post-State:** Receipt generation is now a reusable UI surface and a cleaner basis for later email/receipt-template work. The print route is ready for browser-based thermal receipt output.
+**Verification:** `npm run build` passed, `npx tsc --noEmit` passed, `npm run lint` passed, `npm test` passed (33/33).
+**Next Target:** V1.2.0.0 — Phase 6 (Financial hardening)
+
+---
+
+## V1.0.0.0-Production
+**Timestamp:** 2026-04-01T22:38:00Z
+**Triggered By:** feature addition
+**Phase:** 4 — Modifier groups
+**Files Changed:**
+  - src/components/pos/ModifierModal.tsx (NEW)
+  - src/pages/POS.tsx (MODIFIED — modifier selection flow)
+  - src/components/pos/index.ts (MODIFIED)
+  - PROGRESS.md (MODIFIED)
+  - VERSION_LOG.md (MODIFIED)
+**Summary:** Added full modifier-group selection to the POS register using the existing catalog/item modifier schema and cart modifier types. Items with linked modifier groups now require selection before they are added to cart, and price adjustments flow into cart totals and checkout automatically.
+**Detailed Changes:**
+  - ModifierModal: shadcn Dialog-based selector for `choose_one` and `choose_many` groups, required validation, min/max enforcement, quantity control, and live total preview.
+  - POS: product click path now loads full item modifier data and opens the modal when groups exist; base items without modifiers still add immediately.
+  - Cart pricing: selected modifier price adjustments reuse the existing `CartItemModifier` and `useCart` total pipeline, so checkout/order persistence picks them up without extra special-case logic.
+**Pre-State:** Modifier groups existed in types and catalog services, but the POS register ignored them and always added the base item directly.
+**Post-State:** Modifier-bearing items now behave like a real restaurant POS. Selected modifiers display in the cart and persist through the existing order line modifier insert flow.
+**Verification:** `npm run build` passed, `npx tsc --noEmit` passed, `npm run lint` passed, `npm test` passed (33/33).
+**Next Target:** V1.1.0.0 — Phase 5 (Receipt & printing)
+
+---
+
+## V0.9.0.0-Production
+**Timestamp:** 2026-04-01T21:42:00Z
+**Triggered By:** feature addition
+**Phase:** 3 — Data tables + charts + reporting core
+**Files Changed:**
+  - src/components/DataTable.tsx (NEW)
+  - src/pages/Customers.tsx (MODIFIED — DataTable conversion)
+  - src/pages/History.tsx (MODIFIED — DataTable conversion)
+  - src/pages/Inventory.tsx (MODIFIED — DataTable conversion)
+  - src/pages/Reports.tsx (MODIFIED — chart-backed reporting)
+  - PROGRESS.md (MODIFIED)
+  - VERSION_LOG.md (MODIFIED)
+**Summary:** Added the first reusable operational table layer and upgraded the reporting surface from stat cards only to real charts. Customers, History, and Inventory now use a shared sortable/paginated table component, and Reports now visualizes live payment, order-type, and hourly-volume data.
+**Detailed Changes:**
+  - DataTable: reusable client-side table with sortable columns, pagination, loading skeletons, empty states, and optional row navigation.
+  - Customers: removed the legacy full-screen header pattern, moved into AppShell-native layout, added searchable customer table with visits, spend, and status columns.
+  - History: replaced expandable card list with a searchable/sortable completed-order table and route navigation to full order detail.
+  - Inventory: replaced inventory card grid with a filterable/sortable table showing stock, threshold, price, and stock level badges.
+  - Reports: added Recharts-based payment breakdown pie, order-type revenue bar chart, and hourly volume combo chart using existing `ReportingService` and `OrderService` data.
+**Pre-State:** Phase 3 existed only as roadmap intent. Reports used stat cards plus short lists, and several operational pages still relied on bespoke card lists instead of a reusable table pattern.
+**Post-State:** Phase 3 core infrastructure is present. The repo now has a shared table component and a chart-backed reporting page. Remaining Phase 3 expansion to additional pages can build on this foundation rather than starting from scratch.
+**Verification:** `npm run build` passed, `npx tsc --noEmit` passed, `npm test` passed (33/33).
+**Next Target:** V1.0.0.0 — Phase 4 (Modifier groups)
+
+---
+
+## V0.8.0.0-Production
+**Timestamp:** 2026-04-01T21:30:00Z
+**Triggered By:** feature addition
+**Phase:** 2 — Kitchen Intelligence core
+**Files Changed:**
+  - src/services/soundService.ts (NEW)
+  - src/components/kitchen/SoundSettings.tsx (NEW)
+  - src/hooks/useKitchenOrders.ts (NEW)
+  - src/pages/Tickets.tsx (MODIFIED — enhanced KDS)
+  - src/services/orders.ts (MODIFIED — open tickets include line details)
+  - src/App.tsx (MODIFIED — QueryClientProvider)
+  - PROGRESS.md (MODIFIED)
+  - VERSION_LOG.md (MODIFIED)
+**Summary:** Added the Phase 2 kitchen intelligence core: AudioContext-based kitchen alerts, query-backed KDS refreshing, Supabase Realtime invalidation, and a significantly upgraded Kitchen Display page with sound controls and live-status indicators.
+**Detailed Changes:**
+  - soundService: localStorage-backed sound settings, first-gesture audio priming, generated tones for new orders, order-ready, takeaway-ready, and rush alerts.
+  - SoundSettings: shadcn-based kitchen sound control surface with volume, per-event toggles, and test-tone buttons.
+  - useKitchenOrders: React Query polling every 3 seconds, Supabase Realtime invalidation for orders/order_lines changes, new-order detection, rush threshold detection, last-refresh tracking.
+  - Tickets: upgraded from interval-only refresh to query-driven KDS, added live/fallback connectivity indicator, manual refresh, auto-refresh toggle, sound settings popover, active/takeaway tab layout, richer ticket cards, and real line-item rendering.
+  - OrderService.getOpenTickets: now fetches order lines and modifier details for actual kitchen visibility.
+  - App: QueryClientProvider added so Phase 2 and later data-table/reporting work can use TanStack Query consistently.
+**Pre-State:** KDS used a simple `setInterval(15000)` refresh loop and only loaded top-level open tickets. No sound service, no Realtime invalidation, and no app-level query cache existed.
+**Post-State:** Kitchen operators get near-live KDS refresh with sound alerts and richer ticket context. Realtime falls back gracefully to polling. Current schema still limits true station routing and item-level kitchen statuses, so those remain future schema/UI work rather than being faked here.
+**Verification:** `npm run build` passed, `npx tsc --noEmit` passed, `npm test` passed (33/33).
+**Next Target:** V0.9.0.0 — Phase 3 (Data tables + charts + reporting)
+
+---
+
 ## V0.7.0.0-Production
 **Timestamp:** 2026-04-01T21:10:00Z
-**Triggered By:** feature addition (moderate milestone)
-**Phase:** 1 — Keyboard & Speed Optimizations
+**Triggered By:** feature addition
+**Phase:** 1 — Keyboard shortcuts + command palette
 **Files Changed:**
-  - src/hooks/useKeyboardShortcuts.ts (NEW — 104 lines)
-  - src/components/KeyboardShortcutsHelp.tsx (NEW — 89 lines)
-  - src/components/CommandPalette.tsx (NEW — 213 lines)
-  - src/components/nav/AppShell.tsx (MODIFIED — restructured for overlay rendering)
-**Summary:** Global keyboard shortcuts (Ctrl+K, /, ?, N, Escape) and command palette (cmdk) with debounced search across orders, customers, and menu items. AppShell restructured from early-return to layout-variable pattern to support portal overlays across all breakpoints.
-**Pre-State:** No keyboard shortcuts. No command palette. AppShell used early returns per breakpoint.
-**Post-State:** 5 global shortcuts active. Command palette searches 3 entity types + 6 quick actions. KeyboardShortcutsHelp shows styled kbd badges. AppShell renders overlays after layout variable.
-**Next Target:** V0.7.1.0 — Phase 2 (Kitchen Intelligence: sound service + auto-refresh + Realtime)
+  - src/hooks/useKeyboardShortcuts.ts (NEW)
+  - src/components/KeyboardShortcutsHelp.tsx (NEW)
+  - src/components/CommandPalette.tsx (NEW)
+  - src/components/nav/AppShell.tsx (MODIFIED — overlays + global shortcut wiring)
+  - PROGRESS.md (MODIFIED)
+  - VERSION_LOG.md (MODIFIED)
+**Summary:** Added global keyboard shortcuts and command palette to the CloudPos app shell. Shortcuts are input-aware, Escape-safe, and available across mobile, tablet, and desktop layouts. Command palette supports quick actions and best-effort search over orders, customers, and menu items.
+**Detailed Changes:**
+  - useKeyboardShortcuts: central hook for combo parsing, input suppression, enabled flags, and generated help descriptions.
+  - KeyboardShortcutsHelp: shadcn Dialog with formatted key badges and active shortcut list.
+  - CommandPalette: shadcn CommandDialog with quick navigation plus lightweight search using existing OrderService, CustomerService, and CatalogService APIs.
+  - AppShell: refactored from early-return layout branches to a shared overlay pattern so command/help dialogs render regardless of breakpoint.
+  - Active shortcuts: Ctrl/Cmd+K, /, ?, N, Escape.
+**Pre-State:** Phase 1 files did not exist in this working copy. AppShell had no global keyboard layer and no overlay rendering path.
+**Post-State:** Operators can invoke global navigation/search actions without leaving the keyboard. Phase 1 roadmap items are now present in the repo.
+**Next Target:** V0.8.0.0 — Phase 2 (Kitchen Intelligence)
 
 ---
 
 ## V0.6.4.0-Production
 **Timestamp:** 2026-04-01T20:30:00Z
 **Triggered By:** feature addition
-**Phase:** 0D-2 — POS Register + Checkout Styling
+**Phase:** 0D-2 — POS + Checkout revenue path restyle
 **Files Changed:**
-  - src/pages/POS.tsx (ENHANCED — 327 lines, was 391)
-  - src/pages/Checkout.tsx (ENHANCED — 333 lines, was 382)
-**Summary:** Restyled core revenue path with CloudPos design. Removed standalone blue headers (AppShell handles nav). POS uses SearchBar + FilterPills for categories, EmptyState for no results, Skeleton loading. Checkout uses theme colors (success-tint for change due, destructive for errors). Mobile cart FAB repositioned to bottom-20 for BottomNav clearance.
-**Pre-State:** POS and Checkout had standalone bg-primary headers with their own nav buttons. Hardcoded green/blue colors.
-**Post-State:** Both pages render cleanly within AppShell. All colors use theme tokens. Phase 0 is now fully complete.
-**Next Target:** V0.7.0.0 — Phase 1 (Keyboard shortcuts + Command palette)
+  - src/pages/POS.tsx (MODIFIED — CloudPos register layout)
+  - src/pages/Checkout.tsx (MODIFIED — CloudPos checkout layout)
+  - PROGRESS.md (MODIFIED)
+  - VERSION_LOG.md (MODIFIED)
+**Summary:** Completed the Phase 0 page extraction work by restyling the POS register and checkout screens to match the CloudPos/AppShell system while preserving the current service wiring.
+**Detailed Changes:**
+  - POS: removed legacy standalone header, added SearchBar + FilterPills, desktop cart rail, mobile cart sheet/FAB, CloudPos empty/loading states, and AppShell-compatible spacing.
+  - Checkout: removed legacy standalone header, added back/save-tab actions, card-based tip/payment flow, semantic change-due/error states, and preserved order/payment service flow.
+  - Payment honesty preserved: card payments still initialize the Helcim flow and then throw the existing “UI integration pending” error instead of pretending the flow is complete.
+**Pre-State:** POS.tsx and Checkout.tsx remained the last major screens using older cobalt-pos framing and visual treatment.
+**Post-State:** Phase 0 is fully complete. The full revenue path now matches the CloudPos system used elsewhere in the app.
+**Next Target:** V0.7.0.0 — Phase 1 (Keyboard shortcuts + command palette)
 
 ---
 

@@ -1,7 +1,7 @@
 # CloudPos Implementation Progress Log
-# Last updated: April 1, 2026 — Phase 0D-2 + Phase 1 complete
+# Last updated: April 2, 2026 — Phase 8 complete
 
-## CURRENT VERSION: V0.7.0.0-Production
+## CURRENT VERSION: V1.4.0.0-Production
 ## CURRENT STATE
 - ALL 8 PROTOTYPE BUILD PHASES COMPLETE
 - 6 AUDITS COMPLETE — 26 bugs found/fixed, 37 verification checks passing
@@ -11,11 +11,22 @@
 - 5-CODEBASE COMPETITIVE ANALYSIS COMPLETE — patterns identified for adoption
 - 12-PHASE INTEGRATION ROADMAP COMPLETE — 20 sessions estimated to V1
 - GAP ANALYSIS COMPLETE — V1 needs ~5,200 new lines across ~56 files
-- VERSIONING SYSTEM ACTIVE — VERSION_LOG.md with 7 entries
-- **PHASE 0 COMPLETE** — Foundation merge (theme + components + nav + all pages)
-- **PHASE 1 COMPLETE** — Keyboard shortcuts + Command palette
+- VERSIONING SYSTEM ACTIVE — VERSION_LOG.md with 5 entries
+- **PHASE 0A COMPLETE** — CloudPos theme tokens mapped to Tailwind/shadcn
+- **PHASE 0B COMPLETE** — 8 shared POS components + toast helpers created
+- **PHASE 0C COMPLETE** — Responsive navigation (Sidebar, TopNav, BottomNav, AppShell)
+- **PHASE 0D-1 COMPLETE** — 12 pages enhanced/created + 2 modals (2,804 lines)
+- **PHASE 0D-2 COMPLETE** — POS.tsx + Checkout.tsx restyled for CloudPos/AppShell
+- **PHASE 1 COMPLETE** — keyboard shortcuts + command palette wired into AppShell
+- **PHASE 2 CORE COMPLETE** — kitchen sound service, query-backed KDS refresh, Realtime invalidation, enhanced Tickets page
+- **PHASE 3 CORE COMPLETE** — reusable DataTable, upgraded Customers/History/Inventory, live Reports charts
+- **PHASE 4 COMPLETE** — modifier selection modal wired into POS and cart pricing
+- **PHASE 5 COMPLETE** — reusable printable receipt component and receipt route upgrade
+- **PHASE 6 COMPLETE** — banker-rounded finance helpers, aggregation utilities, and checkout money formatting hardening
+- **PHASE 7 COMPLETE** — launch-hardening sweep removed fake operator actions and misleading checkout paths
+- **PHASE 8 COMPLETE** — deployment/env hardening for GitHub Pages and production handoff
 - Blocking Issues: none
-- NEXT: **Phase 2 — Kitchen Intelligence (sound service + auto-refresh + Realtime)**
+- NEXT: **Phase 9 — live Supabase/Helcim integration QA**
 
 ## PHASE 0 PROGRESS (Foundation Merge)
 
@@ -58,7 +69,7 @@
 - **App.tsx** (122 lines) — MODIFIED: wrapped all protected routes with `<AppShell />` layout route
 - Audit: 0 issues found
 
-### 0D. Pages Extraction 🔶 IN PROGRESS (V0.6.3.0)
+### 0D. Pages Extraction ✅ COMPLETE (V0.6.4.0)
 
 **Phase 0D-1 ✅ COMPLETE — 12 pages + 2 modals (2,804 lines)**
 | Page | Status | Lines | Data Source |
@@ -78,31 +89,11 @@
 | modals/TableDetail.tsx | NEW | 156 | TableService + OrderService — Dialog, order items, actions |
 | modals/ChangeTable.tsx | NEW | 153 | TableService — current→new visual, available grid, confirm |
 
-**Phase 0D-2 ✅ COMPLETE — POS register + Checkout styling (V0.6.4.0)**
-- POS.tsx — 327 lines (was 391): Removed standalone blue header (AppShell handles nav). SearchBar + FilterPills for categories. CloudPos theme colors. EmptyState. Mobile cart FAB at bottom-20 for BottomNav clearance.
-- Checkout.tsx — 333 lines (was 382): Removed blue header, added Back button. Theme colors (success-tint for change due, destructive for errors). Tip maxLength guard. Same full payment flow preserved (cash/card/other).
-
-## PHASE 1 PROGRESS (Keyboard & Speed Optimizations)
-
-### 1A. Keyboard Shortcuts ✅ COMPLETE (V0.7.0.0)
-**Files created:** 2 files
-- **useKeyboardShortcuts.ts** (104 lines) — Configurable hook. Input-aware (won't fire in INPUT/TEXTAREA/contentEditable). Escape always fires. Key combo parser (ctrl+k, meta+k, shift+x). Returns getDescriptions() for help overlay.
-- **KeyboardShortcutsHelp.tsx** (89 lines) — Dialog overlay. KeyBadge component renders styled kbd elements. Shows all active shortcuts.
-
-**Shortcuts wired (via AppShell):**
-| Key | Action |
-|-----|--------|
-| Ctrl+K / ⌘+K | Open command palette |
-| / | Open command palette (alt) |
-| ? | Show keyboard shortcuts help |
-| N | Navigate to POS (new order) |
-| Escape | Close any open overlay |
-
-### 1B. Command Palette ✅ COMPLETE (V0.7.0.0)
-**Files created:** 1 file
-- **CommandPalette.tsx** (213 lines) — shadcn CommandDialog (cmdk). Debounced search (300ms). Searches orders (by order_number/customer_name), customers (via CustomerService.search), menu items (by name/SKU). 6 quick actions always visible (New Order, Dashboard, KDS, Z-Report, Table Floor, Settings). Results grouped by type with icons.
-
-**AppShell.tsx updated:** Restructured from early-return pattern to layout-variable pattern. Renders CommandPalette + KeyboardShortcutsHelp as portal overlays after layout (works across all 3 breakpoints).
+**Phase 0D-2 ✅ COMPLETE — POS register + Checkout styling**
+- POS.tsx — rebuilt into CloudPos register layout with SearchBar, FilterPills, EmptyState, desktop cart rail, and mobile cart sheet/FAB.
+- Checkout.tsx — rebuilt into CloudPos checkout cards with tip step, tender selection, change due, and save-tab action.
+- Existing CatalogService, useCart, OrderService, and PaymentService wiring preserved.
+- Card tender remains explicitly honest: Helcim initialization exists, but in-app card UI is still pending.
 
 **Phase 0D-1 Key Decisions:**
 - POS.tsx and Checkout.tsx kept as-is for 0D-1 (fully functional, just old styling)
@@ -130,17 +121,19 @@
 - 3 Helcim edge functions + 1 email edge function
 - 50 shadcn/ui components + 8 POS shared components
 - AuthContext with multi-org tenancy, role-based guards
-- calculations.ts with 26 passing tests
+- calculations.ts with 31 passing tests
 - CloudPos theme tokens (Inter font, full light/dark, semantic colors)
 - 12 CloudPos-styled pages + 2 modals (all wired to Supabase services)
 
 ## BUILD VERIFICATION
-- `npm run build`: 0 errors, 0 warnings (last run: April 1, 2026)
-- `npm run test`: 33/33 passed, 0 regressions
-- `npx tsc --noEmit`: 0 TypeScript errors
-- Index chunk: 85.67 kB gzip (grew from 55 kB — CommandPalette + cmdk in main bundle)
-- POS chunk: 9.70 kB gzip (shrunk from 14 kB — removed standalone nav)
-- All pages render within AppShell. Zero old-style blue headers remaining.
+- `npm run build`: 0 errors, 0 warnings (verified April 1, 2026)
+- `npm run lint`: passed (verified April 1, 2026)
+- `npm run test`: 38/38 passed (verified April 1, 2026)
+- `npx tsc --noEmit`: 0 TypeScript errors (verified April 1, 2026)
+- `npm run build:pages` with `VITE_BASE_PATH=/cobalt-pos-2026-03-04/`: passed (verified April 2, 2026)
+- Dashboard chunk: 6.09 kB gzip (separate lazy-loaded chunk)
+- Supabase vendor: 173.69 kB gzip (largest chunk — expected)
+- All 14 pages render within AppShell (no stale blue headers remaining on enhanced pages)
 
 ## V1 vs V2 SCOPE (unchanged)
 
@@ -183,8 +176,15 @@
 - **March 28: Phase 0B — Component library (11 files, 657 lines, 8 components + toasts)**
 - **March 30: Phase 0C — Responsive navigation (8 files, ~540 lines, Sidebar/TopNav/BottomNav/AppShell + App.tsx restructured)**
 - **April 1: Phase 0D-1 — Pages extraction batch 1 (12 pages + 2 modals, 2,804 lines, all wired to services)**
-- **April 1: Phase 0D-2 — POS + Checkout restyled (removed standalone headers, CloudPos design)**
-- **April 1: Phase 1 — Keyboard shortcuts hook + KeyboardShortcutsHelp overlay + CommandPalette (cmdk)**
+- **April 1: Phase 0D-2 — POS + Checkout restyle complete**
+- **April 1: Phase 1 — Keyboard shortcuts + command palette complete**
+- **April 1: Phase 2 — Kitchen intelligence core complete**
+- **April 1: Phase 3 — Data tables + charts + reporting core complete**
+- **April 1: Phase 4 — Modifier groups complete**
+- **April 1: Phase 5 — Receipt & printing complete**
+- **April 1: Phase 6 — Financial hardening complete**
+- **April 1: Phase 7 — UX polish + launch hardening complete**
+- **April 2: Phase 8 — deployment/env hardening complete**
 
 ## AUDIT LOG (Phase 0)
 ### Phase 0A Audit (4 issues)
@@ -210,12 +210,16 @@
 5. ✅ Phase 0B: Component library — DONE (V0.6.1.0)
 6. ✅ Phase 0C: Responsive navigation — DONE (V0.6.2.0)
 7. ✅ Phase 0D-1: Pages extraction (12 pages + 2 modals) — DONE (V0.6.3.0)
-8. ✅ Phase 0D-2: POS + Checkout restyled — DONE (V0.6.4.0)
-9. ✅ Phase 1: Keyboard shortcuts + Command palette — DONE (V0.7.0.0)
-10. **Phase 2: Kitchen intelligence (sound + auto-refresh + Realtime)** ← NEXT
-11. Phase 3: Data tables + charts + reporting
-12. Phase 4: Modifier groups
-13. Phases 5-12: See cloudpos-integration-roadmap.md
+8. ✅ Phase 0D-2: Enhance POS.tsx + Checkout.tsx with CloudPos design — DONE (V0.6.4.0)
+9. ✅ Phase 1: Keyboard shortcuts + command palette — DONE (V0.7.0.0)
+10. ✅ Phase 2: Kitchen intelligence core — DONE (V0.8.0.0)
+11. ✅ Phase 3: Data tables + charts + reporting core — DONE (V0.9.0.0)
+12. ✅ Phase 4: Modifier groups — DONE (V1.0.0.0)
+13. ✅ Phase 5: Receipt & printing — DONE (V1.1.0.0)
+14. ✅ Phase 6: Financial hardening — DONE (V1.2.0.0)
+15. ✅ Phase 7: UX polish + launch hardening — DONE (V1.3.0.0)
+16. ✅ Phase 8: production integration QA + deployment hardening — DONE (V1.4.0.0)
+17. **Phase 9: live Supabase/Helcim integration QA** ← NEXT
 
 ## DECISIONS LOG
 - Reused CutMerchantCosts project for CloudPos (free tier 2-project limit)
@@ -277,13 +281,67 @@
 - src/components/nav/AppShell.tsx — 174 lines (added /history, /staff page titles)
 
 ### Enhanced files (Phase 0D-2)
-- src/pages/POS.tsx — 327 lines (was 391 → removed standalone header, SearchBar, FilterPills, theme colors)
-- src/pages/Checkout.tsx — 333 lines (was 382 → removed blue header, success-tint change due, accessible form)
+- src/pages/POS.tsx — CloudPos register layout, category pills, desktop cart rail, mobile cart sheet
+- src/pages/Checkout.tsx — CloudPos checkout cards, tip flow, tender selection, save-tab action
 
 ### New files (Phase 1)
-- src/hooks/useKeyboardShortcuts.ts — 104 lines (configurable shortcuts hook, input-aware)
-- src/components/KeyboardShortcutsHelp.tsx — 89 lines (Dialog overlay with KeyBadge component)
-- src/components/CommandPalette.tsx — 213 lines (cmdk-based global search: orders, customers, items, quick actions)
+- src/hooks/useKeyboardShortcuts.ts — global shortcut hook with input-aware handling
+- src/components/KeyboardShortcutsHelp.tsx — help dialog for active shortcuts
+- src/components/CommandPalette.tsx — quick actions + search for orders/customers/items
 
-### Modified files (Phase 1)
-- src/components/nav/AppShell.tsx — ~230 lines (restructured for overlays, added useState, keyboard shortcuts, CommandPalette + Help rendering)
+### Enhanced files (Phase 1)
+- src/components/nav/AppShell.tsx — command palette + shortcut help overlays wired across breakpoints
+
+### New files (Phase 2)
+- src/services/soundService.ts — AudioContext kitchen alerts with persisted local settings
+- src/components/kitchen/SoundSettings.tsx — KDS sound controls, toggles, and test tones
+- src/hooks/useKitchenOrders.ts — React Query polling + Supabase Realtime invalidation + new-order detection
+
+### Enhanced files (Phase 2)
+- src/pages/Tickets.tsx — enhanced KDS with query-backed refresh, takeaway board tab, sound controls, realtime indicator
+- src/services/orders.ts — open ticket query now includes order lines and modifiers
+- src/App.tsx — QueryClientProvider added for app-level React Query support
+
+### New files (Phase 3)
+- src/components/DataTable.tsx — reusable sortable paginated table component for operational list views
+
+### Enhanced files (Phase 3)
+- src/pages/Customers.tsx — AppShell-native customer table with search and row navigation
+- src/pages/History.tsx — completed-order table with search, type filters, and row navigation
+- src/pages/Inventory.tsx — inventory table with stock-level filters and sortable columns
+- src/pages/Reports.tsx — live payment, order-type, and hourly-volume charts using existing reporting/order data
+
+### New files (Phase 4)
+- src/components/pos/ModifierModal.tsx — required/optional modifier selection with price adjustments and quantity
+
+### Enhanced files (Phase 4)
+- src/pages/POS.tsx — item add flow now opens modifier selector when modifier groups exist
+- src/components/pos/index.ts — ModifierModal exported through POS component barrel
+
+### New files (Phase 5)
+- src/components/Receipt.tsx — reusable receipt layout for on-screen and print output
+- src/lib/receiptFormatter.ts — receipt formatting helpers for money, dates, payments, and footer text
+
+### Enhanced files (Phase 5)
+- src/pages/Receipt.tsx — replaced placeholder success screen with printable receipt experience
+- src/index.css — print media rules for 80mm thermal-style receipt output
+
+### Enhanced files (Phase 6)
+- src/lib/calculations.ts — banker-rounded financial helpers plus calcSum, mergeAndSum, and average utilities
+- src/lib/calculations.test.ts — expanded rounding and aggregation coverage
+- src/pages/Checkout.tsx — exact-cash and placeholder formatting now uses hardened money formatting
+
+### Enhanced files (Phase 7)
+- src/pages/Checkout.tsx — card tender is now honestly disabled until Helcim UI is wired, with clear cashier-facing messaging
+- src/pages/Receipt.tsx — email receipt action now shows as unavailable instead of triggering a stub toast
+
+### Enhanced files (Phase 8)
+- .github/workflows/deploy-pages.yml — build now uses env-driven Pages base path and explicit feature flags
+- .env.example — deployment base path and feature-flag contract documented
+- package.json — build:pages script added for local workflow parity
+- vite.config.ts — build base path now sourced from `VITE_BASE_PATH`
+- src/lib/appEnv.ts — centralized app env and feature-flag parsing
+- src/lib/supabase.ts — env access now uses centralized app env helper
+- src/pages/Checkout.tsx — card readiness now driven by env flag
+- src/pages/Receipt.tsx — email receipt readiness now driven by env flag
+- README.md — rewritten to match the actual repo state and deployment workflow

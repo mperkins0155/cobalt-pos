@@ -14,3 +14,4 @@ export { StatCard } from './StatCard';
 export type { StatAccent } from './StatCard';
 export { OrderCard } from './OrderCard';
 export type { OrderCardOrder, OrderItem, KdsStatus } from './OrderCard';
+export { ModifierModal } from './ModifierModal';

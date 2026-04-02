@@ -81,10 +81,14 @@ export function TableDetailModal({ tableId, open, onClose }: TableDetailProps) {
           </div>
         ) : !order ? (
           <div className="text-center py-6 space-y-3">
-            <p className="text-sm text-muted-foreground">Table is available</p>
+            <p className="text-sm text-muted-foreground">
+              {table?.status === 'occupied'
+                ? 'Table is marked occupied, but the active order is not linked in this build yet.'
+                : 'Table is available.'}
+            </p>
             <Button onClick={() => { onClose(); navigate('/pos'); }}>
               <Plus className="h-4 w-4 mr-1.5" />
-              New Order
+              {table?.status === 'occupied' ? 'Open POS' : 'New Order'}
             </Button>
           </div>
         ) : (
@@ -140,10 +144,10 @@ export function TableDetailModal({ tableId, open, onClose }: TableDetailProps) {
               </Button>
               <Button
                 className="flex-1"
-                onClick={() => { onClose(); navigate(`/pos/checkout?orderId=${order.id}`); }}
+                onClick={() => { onClose(); navigate('/pos'); }}
               >
                 <CreditCard className="h-3.5 w-3.5 mr-1" />
-                Pay
+                Open POS
               </Button>
             </div>
           </div>

@@ -97,7 +97,13 @@ export const OrderService = {
   async getOpenTickets(orgId: string, locationId?: string): Promise<Order[]> {
     let query = supabase
       .from('orders')
-      .select('*, order_lines(count)')
+      .select(`
+        *,
+        lines:order_lines(
+          *,
+          modifiers:order_line_modifiers(*)
+        )
+      `)
       .eq('org_id', orgId)
       .eq('status', 'open')
       .order('created_at', { ascending: false });
