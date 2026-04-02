@@ -5,17 +5,32 @@ on:
     branches: ["main", "master"]
   workflow_dispatch:
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
 concurrency:
   group: "pages"
   cancel-in-progress: true
 
 jobs:
+  configure-pages:
+    runs-on: ubuntu-latest
+    permissions:
+      administration: write
+    steps:
+      - name: Allow current branch to deploy to Pages environment
+        run: |
+          curl -s -X PUT \
+            -H "Authorization: Bearer ${{ github.token }}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "Content-Type: application/json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            -d '{"deployment_branch_policy":null}' \
+            https://api.github.com/repos/${{ github.repository }}/environments/github-pages
+
   deploy:
+    needs: configure-pages
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
