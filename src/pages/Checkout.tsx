@@ -23,6 +23,8 @@ import type { TenderType } from '@/types/database';
 
 type CheckoutStep = 'tip' | 'payment' | 'processing' | 'complete';
 
+const CARD_PAYMENTS_READY = false;
+
 export default function Checkout() {
   const navigate = useNavigate();
   const { organization, profile, currentLocation, tipSettings } = useAuth();
@@ -252,21 +254,36 @@ export default function Checkout() {
             <CardContent className="space-y-3">
               <div className="grid grid-cols-3 gap-2">
                 {([
-                  { key: 'card' as TenderType, icon: CreditCard, label: 'Card' },
+                  {
+                    key: 'card' as TenderType,
+                    icon: CreditCard,
+                    label: 'Card',
+                    disabled: !CARD_PAYMENTS_READY,
+                    hint: 'Helcim checkout UI still pending',
+                  },
                   { key: 'cash' as TenderType, icon: Banknote, label: 'Cash' },
                   { key: 'other' as TenderType, icon: Smartphone, label: 'Other' },
-                ]).map(({ key, icon: Icon, label }) => (
+                ]).map(({ key, icon: Icon, label, disabled, hint }) => (
                   <Button
                     key={key}
                     variant={paymentMethod === key ? 'default' : 'outline'}
-                    className="flex h-auto flex-col py-3.5"
+                    className="flex h-auto flex-col py-3.5 disabled:pointer-events-none disabled:opacity-50"
+                    disabled={disabled}
                     onClick={() => setPaymentMethod(key)}
+                    title={hint}
                   >
                     <Icon className="mb-1 h-6 w-6" />
                     <span className="text-xs font-medium">{label}</span>
+                    {disabled && <span className="mt-1 text-[10px] text-muted-foreground">Soon</span>}
                   </Button>
                 ))}
               </div>
+
+              {!CARD_PAYMENTS_READY && (
+                <div className="rounded-lg border border-warning/20 bg-warning-tint p-3 text-sm text-warning">
+                  Card checkout is not enabled in this build yet. Use cash or another payment app for live sales.
+                </div>
+              )}
 
               {paymentMethod === 'cash' && (
                 <div className="space-y-2.5">

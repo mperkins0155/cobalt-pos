@@ -5,6 +5,27 @@
 
 ---
 
+## V1.3.0.0-Production
+**Timestamp:** 2026-04-01T23:50:00Z
+**Triggered By:** launch hardening
+**Phase:** 7 — UX polish + launch hardening
+**Files Changed:**
+  - src/pages/Checkout.tsx (MODIFIED)
+  - src/pages/Receipt.tsx (MODIFIED)
+  - PROGRESS.md (MODIFIED)
+  - VERSION_LOG.md (MODIFIED)
+**Summary:** Removed two misleading operator-facing paths during the launch-hardening sweep: card payments no longer present as a live checkout option when the Helcim UI is not wired, and receipt email is now shown as unavailable instead of firing a stub action.
+**Detailed Changes:**
+  - checkout: card tender is disabled behind an explicit readiness flag, carries a clear “Soon” state, and shows a warning message telling staff to use cash or another payment app for live sales.
+  - receipt: the email receipt button is now an honest disabled action with explanatory tooltip text instead of a fake success-path stub.
+  - hardening sweep: re-ran the full build, typecheck, lint, and tests after the operator-flow cleanup.
+**Pre-State:** Checkout still let users choose card even though that path always failed with a “UI integration pending” error, and the receipt page still exposed a stubbed email action.
+**Post-State:** Cashiers no longer hit avoidable dead ends in the live payment flow, and the receipt screen no longer suggests a capability that is not actually shipped.
+**Verification:** `npm run build` passed, `npx tsc --noEmit` passed, `npm run lint` passed, `npm test` passed (38/38).
+**Next Target:** V1.4.0.0 — Phase 8 (production integration QA + deployment hardening)
+
+---
+
 ## V1.2.0.0-Production
 **Timestamp:** 2026-04-01T23:10:00Z
 **Triggered By:** feature addition

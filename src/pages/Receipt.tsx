@@ -6,7 +6,6 @@ import { OrderService } from '@/services/orders';
 import { Receipt as ReceiptCard } from '@/components/Receipt';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { toast } from '@/components/ui/sonner';
 import type { Order } from '@/types/database';
 
 export default function ReceiptPage() {
@@ -68,10 +67,11 @@ export default function ReceiptPage() {
                 <Button
                   variant="outline"
                   className="w-full"
-                  onClick={() => toast.info('Email receipt is stubbed for Phase 5.')}
+                  disabled
+                  title="Email delivery is not enabled in this build yet"
                 >
                   <Send className="mr-2 h-4 w-4" />
-                  Email Receipt
+                  Email Receipt Soon
                 </Button>
                 <Button
                   variant="outline"

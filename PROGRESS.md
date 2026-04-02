@@ -1,7 +1,7 @@
 # CloudPos Implementation Progress Log
-# Last updated: April 1, 2026 — Phase 6 complete
+# Last updated: April 1, 2026 — Phase 7 complete
 
-## CURRENT VERSION: V1.2.0.0-Production
+## CURRENT VERSION: V1.3.0.0-Production
 ## CURRENT STATE
 - ALL 8 PROTOTYPE BUILD PHASES COMPLETE
 - 6 AUDITS COMPLETE — 26 bugs found/fixed, 37 verification checks passing
@@ -23,8 +23,9 @@
 - **PHASE 4 COMPLETE** — modifier selection modal wired into POS and cart pricing
 - **PHASE 5 COMPLETE** — reusable printable receipt component and receipt route upgrade
 - **PHASE 6 COMPLETE** — banker-rounded finance helpers, aggregation utilities, and checkout money formatting hardening
+- **PHASE 7 COMPLETE** — launch-hardening sweep removed fake operator actions and misleading checkout paths
 - Blocking Issues: none
-- NEXT: **Phase 7 — UX polish + launch hardening**
+- NEXT: **Phase 8 — production integration QA + deployment hardening**
 
 ## PHASE 0 PROGRESS (Foundation Merge)
 
@@ -180,6 +181,7 @@
 - **April 1: Phase 4 — Modifier groups complete**
 - **April 1: Phase 5 — Receipt & printing complete**
 - **April 1: Phase 6 — Financial hardening complete**
+- **April 1: Phase 7 — UX polish + launch hardening complete**
 
 ## AUDIT LOG (Phase 0)
 ### Phase 0A Audit (4 issues)
@@ -212,7 +214,8 @@
 12. ✅ Phase 4: Modifier groups — DONE (V1.0.0.0)
 13. ✅ Phase 5: Receipt & printing — DONE (V1.1.0.0)
 14. ✅ Phase 6: Financial hardening — DONE (V1.2.0.0)
-15. **Phase 7: UX polish + launch hardening** ← NEXT
+15. ✅ Phase 7: UX polish + launch hardening — DONE (V1.3.0.0)
+16. **Phase 8: production integration QA + deployment hardening** ← NEXT
 
 ## DECISIONS LOG
 - Reused CutMerchantCosts project for CloudPos (free tier 2-project limit)
@@ -323,3 +326,7 @@
 - src/lib/calculations.ts — banker-rounded financial helpers plus calcSum, mergeAndSum, and average utilities
 - src/lib/calculations.test.ts — expanded rounding and aggregation coverage
 - src/pages/Checkout.tsx — exact-cash and placeholder formatting now uses hardened money formatting
+
+### Enhanced files (Phase 7)
+- src/pages/Checkout.tsx — card tender is now honestly disabled until Helcim UI is wired, with clear cashier-facing messaging
+- src/pages/Receipt.tsx — email receipt action now shows as unavailable instead of triggering a stub toast
