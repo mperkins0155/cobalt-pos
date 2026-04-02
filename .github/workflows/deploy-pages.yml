@@ -24,20 +24,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 8
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
+          cache: pnpm
 
       - name: Install
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Build
         env:
           VITE_SUPABASE_URL: https://tnjbdtsxrhmywcaueuvv.supabase.co
           VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
-        run: npm run build -- --base /cobalt-pos-2026-03-04/
+        run: pnpm run build -- --base /cobalt-pos-2026-03-04/
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
