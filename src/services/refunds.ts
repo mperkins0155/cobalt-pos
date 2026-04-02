@@ -1,7 +1,15 @@
 import { supabase } from '@/lib/supabase';
-import type { Refund, RefundLine, RefundType, Order } from '@/types/database';
+import type { Refund, RefundLine, RefundType, Order, Payment, TenderType } from '@/types/database';
 import { v4 as uuid } from 'uuid';
 import { round2 } from '@/lib/calculations';
+
+export function resolveRefundTenderType(payments: Pick<Payment, 'payment_kind' | 'tender_type' | 'created_at'>[]): TenderType {
+  const salePayments = payments
+    .filter((payment) => payment.payment_kind === 'sale')
+    .sort((left, right) => new Date(right.created_at).getTime() - new Date(left.created_at).getTime());
+
+  return salePayments[0]?.tender_type || 'other';
+}
 
 export const RefundService = {
   /** Full refund of an order */
@@ -16,7 +24,7 @@ export const RefundService = {
     // Get order with lines
     const { data: order, error: orderErr } = await supabase
       .from('orders')
-      .select('*, lines:order_lines(*)')
+      .select('*, lines:order_lines(*), payments(*)')
       .eq('id', params.orderId)
       .single();
 
@@ -71,12 +79,12 @@ export const RefundService = {
     await supabase.from('payments').insert({
       id: uuid(),
       org_id: params.orgId,
-      order_id: params.orderId,
-      payment_kind: 'refund',
-      tender_type: 'card', // TODO: match original tender type
-      amount: -refundAmount,
-      status: 'completed',
-      processed_at: new Date().toISOString(),
+        order_id: params.orderId,
+        payment_kind: 'refund',
+        tender_type: resolveRefundTenderType(order.payments || []),
+        amount: -refundAmount,
+        status: 'completed',
+        processed_at: new Date().toISOString(),
       idempotency_key: uuid(),
     });
 
@@ -109,7 +117,7 @@ export const RefundService = {
   }): Promise<Refund> {
     const { data: order, error: orderErr } = await supabase
       .from('orders')
-      .select('*')
+      .select('*, payments(*)')
       .eq('id', params.orderId)
       .single();
 
@@ -168,7 +176,7 @@ export const RefundService = {
       org_id: params.orgId,
       order_id: params.orderId,
       payment_kind: 'refund',
-      tender_type: 'card',
+      tender_type: resolveRefundTenderType(order.payments || []),
       amount: -refundAmount,
       status: 'completed',
       processed_at: new Date().toISOString(),

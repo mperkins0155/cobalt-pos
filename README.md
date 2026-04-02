@@ -74,3 +74,5 @@ npm run build:pages
 2. Add real email receipt delivery and enable `VITE_ENABLE_EMAIL_RECEIPTS`.
 3. Run end-to-end QA with live Supabase and processor credentials across cashier, manager, and owner roles.
 4. Tighten permissive dev-oriented RLS policies before broad rollout.
+
+For live handoff and role-based verification, use `PRODUCTION_QA_CHECKLIST.md`.
