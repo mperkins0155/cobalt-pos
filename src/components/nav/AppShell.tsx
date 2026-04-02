@@ -61,6 +61,10 @@ export function AppShell() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
+  // Global overlay states
+  const [cmdOpen, setCmdOpen] = useState(false);
+  const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
+
   const userName = profile
     ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'User'
     : 'User';

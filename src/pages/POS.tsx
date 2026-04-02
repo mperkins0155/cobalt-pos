@@ -1,3 +1,11 @@
+// ============================================================
+// CloudPos — POS Register Page
+// Phase 0D-2: Restyled with CloudPos design, removed standalone header
+// Data: CatalogService.getCategories() + getItems()
+// Cart: useCart hook (shared via context)
+// Last modified: V0.6.4.0 — see VERSION_LOG.md
+// ============================================================
+
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -60,14 +68,12 @@ export default function POS() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement)?.tagName)) return;
-
       if (e.key === 'Enter' && barcodeBuffer.current.length >= 4) {
         const barcode = barcodeBuffer.current;
         barcodeBuffer.current = '';
         void handleBarcodeScan(barcode);
         return;
       }
-
       if (e.key.length === 1) {
         barcodeBuffer.current += e.key;
         clearTimeout(barcodeTimer.current);
@@ -76,7 +82,6 @@ export default function POS() {
         }, 100);
       }
     };
-
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [organization]);
@@ -278,6 +283,7 @@ export default function POS() {
     </div>
   );
 
+  // ── Main layout ──
   return (
     <div className="flex flex-1 overflow-hidden">
       <div className="flex flex-1 flex-col overflow-hidden">

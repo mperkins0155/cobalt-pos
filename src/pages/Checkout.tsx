@@ -1,3 +1,10 @@
+// ============================================================
+// CloudPos — Checkout / Payment Page
+// Phase 0D-2: Restyled with CloudPos design, removed standalone header
+// Data: OrderService.createOrder() + PaymentService
+// Last modified: V0.6.4.0 — see VERSION_LOG.md
+// ============================================================
+
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -5,7 +12,7 @@ import { useCart } from '@/hooks/useCart';
 import { appEnv } from '@/lib/appEnv';
 import { OrderService } from '@/services/orders';
 import { PaymentService } from '@/services/payments';
-import { formatCurrency, calcChangeDue, calcTipFromPercent, round2 } from '@/lib/calculations';
+import { formatCurrency, calcChangeDue, calcTipFromPercent } from '@/lib/calculations';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -48,13 +55,11 @@ export default function Checkout() {
     setCustomTip('');
     cart.setTipByPercent(percent);
   };
-
   const handleCustomTip = (value: string) => {
     setCustomTip(value);
     setSelectedTip(null);
     cart.setTipAmount(parseFloat(value) || 0);
   };
-
   const handleNoTip = () => {
     setSelectedTip(0);
     setCustomTip('');
@@ -65,33 +70,21 @@ export default function Checkout() {
     if (!organization || !profile) return;
     setProcessing(true);
     setError(null);
-
     try {
       const order = await OrderService.createOrder(
-        organization.id,
-        currentLocation?.id,
-        profile.id,
-        cart.getCartState(),
-        'pending'
+        organization.id, currentLocation?.id, profile.id,
+        cart.getCartState(), 'pending'
       );
 
       if (paymentMethod === 'cash') {
         const received = parseFloat(cashReceived) || cart.totals.total;
         await PaymentService.recordCashPayment(
-          organization.id,
-          order.id,
-          cart.totals.total,
-          received,
-          cart.tipAmount
+          organization.id, order.id, cart.totals.total, received, cart.tipAmount
         );
       } else if (paymentMethod === 'other') {
         await PaymentService.recordOtherPayment(
-          organization.id,
-          order.id,
-          cart.totals.total,
-          otherProvider,
-          otherReference,
-          cart.tipAmount
+          organization.id, order.id, cart.totals.total,
+          otherProvider, otherReference, cart.tipAmount
         );
       } else if (paymentMethod === 'card') {
         await PaymentService.initializeCardPayment(
@@ -132,10 +125,7 @@ export default function Checkout() {
 
     try {
       await OrderService.saveAsTicket(
-        organization.id,
-        currentLocation?.id,
-        profile.id,
-        cart.getCartState()
+        organization.id, currentLocation?.id, profile.id, cart.getCartState()
       );
       cart.clearCart();
       navigate('/pos', { replace: true });
@@ -234,9 +224,7 @@ export default function Checkout() {
                     onChange={(e) => handleCustomTip(e.target.value)}
                   />
                 </div>
-                <Button variant="outline" onClick={handleNoTip}>
-                  No Tip
-                </Button>
+                <Button variant="outline" onClick={handleNoTip}>No Tip</Button>
               </div>
               <Button className="h-12 w-full font-bold" onClick={() => setStep('payment')}>
                 Continue — {formatCurrency(cart.totals.total)}
