@@ -14,6 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       administration: write
+      environments: write
     steps:
       - name: Allow current branch to deploy to Pages environment
         run: |
