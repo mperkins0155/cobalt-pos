@@ -114,7 +114,7 @@
 - Hardcoded data: MENU[], TABLES[], CUSTOMERS[] arrays — no backend
 - Custom inline styles with design tokens (T_STATIC, T_LIGHT, T_DARK)
 
-### cobalt-pos Production Codebase (github.com/mperkins0155/cobalt-pos-2026-03-04)
+### cobalt-pos Production Codebase (github.com/mperkins0155/cobalt-pos)
 - 12,625 lines across 101 files + ~1,200 (Phase 0A-0C) + ~2,800 (Phase 0D-1) = ~16,625 lines
 - 14 Supabase service modules
 - 739 lines of TypeScript interfaces (30 enums, 40+ interfaces)
@@ -130,7 +130,7 @@
 - `npm run lint`: passed (verified April 1, 2026)
 - `npm run test`: 38/38 passed (verified April 1, 2026)
 - `npx tsc --noEmit`: 0 TypeScript errors (verified April 1, 2026)
-- `npm run build:pages` with `VITE_BASE_PATH=/cobalt-pos-2026-03-04/`: passed (verified April 2, 2026)
+- `npm run build:pages` with `VITE_BASE_PATH=/cobalt-pos/`: passed (verified April 2, 2026)
 - Dashboard chunk: 6.09 kB gzip (separate lazy-loaded chunk)
 - Supabase vendor: 173.69 kB gzip (largest chunk — expected)
 - All 14 pages render within AppShell (no stale blue headers remaining on enhanced pages)

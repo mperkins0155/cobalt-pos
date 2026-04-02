@@ -55,14 +55,14 @@ The repo includes a GitHub Pages workflow at `.github/workflows/deploy-pages.yml
 
 It expects:
 
-- branch: `master`
-- Pages base path: `/cobalt-pos-2026-03-04/`
+- branch: `main`
+- Pages base path: `/cobalt-pos/`
 - `VITE_SUPABASE_ANON_KEY` configured as a GitHub Actions repository variable
 
 Equivalent local Pages build in PowerShell:
 
 ```powershell
-$env:VITE_BASE_PATH='/cobalt-pos-2026-03-04/'
+$env:VITE_BASE_PATH='/cobalt-pos/'
 $env:VITE_ENABLE_CARD_PAYMENTS='false'
 $env:VITE_ENABLE_EMAIL_RECEIPTS='false'
 npm run build:pages

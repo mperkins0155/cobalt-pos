@@ -117,9 +117,9 @@ interface LocalDocMetadata {
 
 const DEFAULT_SOURCES: ProjectSourceConfig[] = [
   {
-    id: 'cobalt-pos-2026-03-04',
+    id: 'cobalt-pos',
     owner: 'mperkins0155',
-    repo: 'cobalt-pos-2026-03-04',
+    repo: 'cobalt-pos',
     workspace: 'cobalt-pos-2026-03-04',
     agent: 'Codex + Claude',
     enabled: true,

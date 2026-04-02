@@ -4,7 +4,7 @@ Updated: April 1, 2026
 
 ## Source Of Truth
 
-- Product execution home base: `cobalt-pos-2026-03-04`
+- Product execution home base: `cobalt-pos`
 - Current implementation status: `PROGRESS.md` in this repo root
 - Marketing site source: `cmc-website`
 - AI website generation source: `ai-web-builder`
@@ -30,7 +30,7 @@ Key result:
 
 Do not start by creating a new monorepo and trying to hard-merge every repo at once.
 
-The active spine should remain `cobalt-pos-2026-03-04` because it already has:
+The active spine should remain `cobalt-pos` because it already has:
 
 - the live Supabase service layer
 - active versioning and progress tracking
@@ -57,7 +57,7 @@ The rest of the platform should be integrated into this spine in bounded slices.
 
 | Repo | Decision | Reason |
 | --- | --- | --- |
-| `cobalt-pos-2026-03-04` | Keep as product spine | Active repo with real services, auth, payments, and current progress |
+| `cobalt-pos` | Keep as product spine | Active repo with real services, auth, payments, and current progress |
 | `cmc-website` | Keep as separate marketing frontend | Already strong as the public acquisition surface |
 | `ai-web-builder` | Extract features, do not merge raw | Valuable generation routes and data model, but root app is drifted |
 | `CobaltFullPlatform` | Extract modules only | Good CRM/email logic, but too broad for a direct merge |
@@ -69,7 +69,7 @@ The rest of the platform should be integrated into this spine in bounded slices.
 
 ### 1. POS Is Already Mid-Build
 
-`cobalt-pos-2026-03-04` is not a starting point. It is already in active execution:
+`cobalt-pos` is not a starting point. It is already in active execution:
 
 - `V0.6.3.0-Production`
 - Phase `0A`, `0B`, `0C`, and `0D-1` completed
@@ -118,7 +118,7 @@ It also carries extra scope that should stay out of the launch path:
 
 ### 5. Two7 Archives Are Strategically Useful
 
-The Two7 archives do not change the recommendation to keep `cobalt-pos-2026-03-04` as the product spine, but they do materially sharpen the marketing and website-builder strategy.
+The Two7 archives do not change the recommendation to keep `cobalt-pos` as the product spine, but they do materially sharpen the marketing and website-builder strategy.
 
 Important findings:
 
@@ -200,7 +200,7 @@ Do not use them as the live runtime base unless a clean subset is intentionally 
 
 This stays the critical path because the POS app is the operational core.
 
-- [ ] Complete `Phase 0D-2` in `cobalt-pos-2026-03-04`
+- [ ] Complete `Phase 0D-2` in `cobalt-pos`
 - [ ] Restyle `src/pages/POS.tsx` with CloudPos patterns
 - [ ] Restyle `src/pages/Checkout.tsx` with CloudPos patterns
 - [ ] Verify sign up -> onboarding -> order -> checkout -> payment -> receipt
@@ -315,7 +315,7 @@ Deliverable:
 Recommended split:
 
 - `cutmerchantcosts.com` -> `cmc-website`
-- `app.cutmerchantcosts.com` -> `cobalt-pos-2026-03-04`
+- `app.cutmerchantcosts.com` -> `cobalt-pos`
 - generated websites -> merchant subdomains or custom domains later
 - Two7 campaign pages -> either nested under `cutmerchantcosts.com` or deployed as focused microsite paths if they prove useful
 
@@ -342,7 +342,7 @@ Shared services:
 
 ## Immediate Next Actions
 
-1. Finish `Phase 0D-2` in `cobalt-pos-2026-03-04`.
+1. Finish `Phase 0D-2` in `cobalt-pos`.
 2. Wire `cmc-website` CTAs into Supabase auth plus POS onboarding.
 3. Define the shared website-generation schema in Supabase.
 4. Extract the AI generation route/orchestrator into the POS app or a tightly-coupled service.
@@ -356,7 +356,7 @@ Shared services:
 
 ## Reference Files Worth Reusing
 
-### From `cobalt-pos-2026-03-04`
+### From `cobalt-pos`
 
 - `PROGRESS.md`
 - `VERSION_LOG.md`
@@ -396,7 +396,7 @@ Shared services:
 
 The fastest correct path is:
 
-- keep `cobalt-pos-2026-03-04` as the operating system
+- keep `cobalt-pos` as the operating system
 - keep `cmc-website` as the acquisition layer
 - pull AI website generation into the POS as a module
 - pull CRM/email into the POS as bounded features

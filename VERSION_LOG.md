@@ -30,7 +30,7 @@
   - build parity: added `build:pages` and verified a Pages-equivalent build locally using the repo’s expected base path.
 **Pre-State:** The repo still relied on implicit deployment assumptions: Pages base path was passed ad hoc in the workflow, runtime feature readiness lived in code constants, and README status/documentation lagged behind the actual branch state.
 **Post-State:** Deployment assumptions are explicit, reproducible, and documented. The branch now has a cleaner path for Pages deployment and a safer handoff for later live integration QA.
-**Verification:** `npm run build` passed, `npm run build:pages` passed with `VITE_BASE_PATH=/cobalt-pos-2026-03-04/`, `npx tsc --noEmit` passed, `npm run lint` passed, `npm test` passed (38/38).
+**Verification:** `npm run build` passed, `npm run build:pages` passed with `VITE_BASE_PATH=/cobalt-pos/`, `npx tsc --noEmit` passed, `npm run lint` passed, `npm test` passed (38/38).
 **Next Target:** V1.5.0.0 — Phase 9 (live Supabase/Helcim integration QA)
 
 ---

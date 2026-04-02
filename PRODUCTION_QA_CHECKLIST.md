@@ -85,7 +85,7 @@ Use this checklist for live verification against real Supabase data and processo
 
 1. Run local validation:
    - `npm run build`
-   - `npm run build:pages` with `VITE_BASE_PATH=/cobalt-pos-2026-03-04/`
+   - `npm run build:pages` with `VITE_BASE_PATH=/cobalt-pos/`
    - `npx tsc --noEmit`
    - `npm run lint`
    - `npm test`
