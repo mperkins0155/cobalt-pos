@@ -1,87 +1,193 @@
-// ============================================================
-// CloudPos — Kitchen Display (KDS)
-// Phase 0D: Enhanced from cobalt-pos Tickets + prototype KDSPage
-// Data: OrderService.getOpenTickets()
-// TODO Phase 2: Add soundService, auto-refresh, Realtime, station routing
-// Last modified: V0.6.3.0 — see VERSION_LOG.md
-// ============================================================
-
-import { useState, useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { ChefHat, CheckCircle, Clock, RefreshCw, Settings2, Volume2, Wifi, WifiOff } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useKitchenOrders } from '@/hooks/useKitchenOrders';
+import { kitchenSoundService } from '@/services/soundService';
 import { OrderService } from '@/services/orders';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Card, CardContent } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { FilterPills, EmptyState } from '@/components/pos';
-import { ChefHat, Clock, CheckCircle } from 'lucide-react';
+import { SoundSettings } from '@/components/kitchen/SoundSettings';
 import { toast } from '@/components/ui/sonner';
 import type { Order } from '@/types/database';
 
-/** Minutes elapsed → urgency color */
-function urgencyClass(createdAt: string): { bg: string; text: string; label: string } {
-  const mins = Math.floor((Date.now() - new Date(createdAt).getTime()) / 60000);
-  if (mins < 10) return { bg: 'border-success/40', text: 'text-success', label: `${mins}m` };
-  if (mins < 20) return { bg: 'border-warning/40', text: 'text-warning', label: `${mins}m` };
-  return { bg: 'border-destructive/40', text: 'text-destructive', label: `${mins}m` };
+function urgencyMeta(createdAt: string) {
+  const minutes = Math.floor((Date.now() - new Date(createdAt).getTime()) / 60000);
+  if (minutes < 10) {
+    return { border: 'border-success/40', text: 'text-success', tone: 'Fresh', minutes };
+  }
+  if (minutes < 20) {
+    return { border: 'border-warning/40', text: 'text-warning', tone: 'Working', minutes };
+  }
+  return { border: 'border-destructive/40', text: 'text-destructive', tone: 'Rush', minutes };
+}
+
+function formatRefreshTime(date: Date | null) {
+  if (!date) return 'Waiting for first refresh';
+  const seconds = Math.max(0, Math.floor((Date.now() - date.getTime()) / 1000));
+  if (seconds < 5) return 'Updated just now';
+  if (seconds < 60) return `Updated ${seconds}s ago`;
+  return `Updated ${Math.floor(seconds / 60)}m ago`;
+}
+
+function TicketCard({
+  ticket,
+  bumpingId,
+  onBump,
+}: {
+  ticket: Order;
+  bumpingId: string | null;
+  onBump: (order: Order) => void;
+}) {
+  const urgency = urgencyMeta(ticket.created_at);
+  const isBumping = bumpingId === ticket.id;
+  const typeLabel =
+    ticket.order_type === 'dine_in'
+      ? 'Dine In'
+      : ticket.order_type === 'takeout'
+        ? 'Take Away'
+        : ticket.order_type;
+
+  return (
+    <div className={`rounded-xl border-2 bg-card p-4 shadow-pos ${urgency.border}`}>
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-bold text-primary">#{ticket.order_number}</p>
+          <p className="truncate text-sm font-medium text-foreground">
+            {ticket.customer_name || 'Walk-in'}
+          </p>
+        </div>
+        <div className="flex flex-col items-end gap-1">
+          <Badge variant="secondary" className="text-[10px]">
+            {typeLabel}
+          </Badge>
+          <span className={`flex items-center gap-1 text-xs font-semibold ${urgency.text}`}>
+            <Clock className="h-3 w-3" />
+            {urgency.minutes}m
+          </span>
+        </div>
+      </div>
+
+      <div className="mb-3 rounded-lg bg-muted/50 px-3 py-2">
+        <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
+          <span>Kitchen status</span>
+          <span className={urgency.text}>{urgency.tone}</span>
+        </div>
+      </div>
+
+      <div className="mb-4 space-y-1.5">
+        {(ticket.lines || []).length > 0 ? (
+          (ticket.lines || []).slice(0, 7).map((line) => (
+            <div key={line.id} className="rounded-lg border border-border bg-background px-3 py-2">
+              <div className="flex items-start justify-between gap-2">
+                <span className="text-sm text-foreground">
+                  <span className="font-semibold">{line.quantity}×</span> {line.item_name}
+                </span>
+              </div>
+              {line.modifiers && line.modifiers.length > 0 && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {line.modifiers.map((modifier) => modifier.option_name).join(', ')}
+                </p>
+              )}
+              {line.notes && (
+                <p className="mt-1 text-xs italic text-primary">{line.notes}</p>
+              )}
+            </div>
+          ))
+        ) : (
+          <p className="text-xs text-muted-foreground">No line items loaded.</p>
+        )}
+        {(ticket.lines || []).length > 7 && (
+          <p className="text-xs text-muted-foreground">
+            +{(ticket.lines || []).length - 7} more items
+          </p>
+        )}
+      </div>
+
+      <Button
+        variant="outline"
+        className="w-full"
+        disabled={isBumping}
+        onClick={() => onBump(ticket)}
+      >
+        <CheckCircle className="mr-1.5 h-4 w-4" />
+        {isBumping ? 'Bumping...' : 'Bump Order'}
+      </Button>
+    </div>
+  );
 }
 
 export default function Tickets() {
   const { organization, currentLocation } = useAuth();
-  const [tickets, setTickets] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('all');
+  const [view, setView] = useState<'active' | 'takeaway'>('active');
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [autoRefresh, setAutoRefresh] = useState(true);
   const [bumpingId, setBumpingId] = useState<string | null>(null);
+  const [soundEnabled, setSoundEnabled] = useState(kitchenSoundService.getSettings().enabled);
 
-  const loadTickets = async () => {
-    if (!organization) return;
-    try {
-      const result = await OrderService.getOpenTickets(
-        organization.id,
-        currentLocation?.id
-      );
-      setTickets(result);
-    } catch (err) {
-      console.error('KDS load error:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const {
+    tickets,
+    isLoading,
+    isFetching,
+    error,
+    refetch,
+    lastRefresh,
+    realtimeConnected,
+  } = useKitchenOrders({
+    orgId: organization?.id,
+    locationId: currentLocation?.id,
+    autoRefresh,
+  });
 
   useEffect(() => {
-    void loadTickets();
-    // Auto-refresh every 15s (Phase 2 will add React Query + Realtime)
-    const interval = setInterval(loadTickets, 15000);
-    return () => clearInterval(interval);
-  }, [organization?.id, currentLocation?.id]);
+    setSoundEnabled(kitchenSoundService.getSettings().enabled);
+  }, []);
 
-  // Order type filter
-  const typeCounts = useMemo(() => {
-    const c: Record<string, number> = { all: tickets.length };
-    for (const t of tickets) {
-      const type = t.order_type || 'other';
-      c[type] = (c[type] || 0) + 1;
-    }
-    return c;
+  const stats = useMemo(() => {
+    const urgent = tickets.filter((ticket) => urgencyMeta(ticket.created_at).minutes >= 15).length;
+    const takeaway = tickets.filter((ticket) => ticket.order_type === 'takeout').length;
+    const dineIn = tickets.filter((ticket) => ticket.order_type === 'dine_in').length;
+    return {
+      total: tickets.length,
+      urgent,
+      takeaway,
+      dineIn,
+    };
   }, [tickets]);
 
-  const filtered = useMemo(() => {
-    if (filter === 'all') return tickets;
-    return tickets.filter((t) => t.order_type === filter);
-  }, [tickets, filter]);
-
   const filterTabs = [
-    { key: 'all', label: 'All', count: typeCounts.all || 0 },
-    { key: 'dine_in', label: 'Dine In', count: typeCounts.dine_in || 0 },
-    { key: 'takeout', label: 'Take Away', count: typeCounts.takeout || 0 },
+    { key: 'all', label: 'All', count: tickets.length },
+    { key: 'dine_in', label: 'Dine In', count: stats.dineIn },
+    { key: 'takeout', label: 'Take Away', count: stats.takeaway },
   ];
 
-  // Bump order → mark as paid (simplified; Phase 2 adds item-level bumping)
+  const visibleTickets = useMemo(() => {
+    const base =
+      view === 'takeaway'
+        ? tickets.filter((ticket) => ticket.order_type === 'takeout')
+        : tickets;
+
+    if (typeFilter === 'all') return base;
+    return base.filter((ticket) => ticket.order_type === typeFilter);
+  }, [tickets, typeFilter, view]);
+
   const bumpOrder = async (order: Order) => {
     setBumpingId(order.id);
     try {
-      await OrderService.updateStatus(order.id, 'paid', { completed_at: new Date().toISOString() });
-      setTickets((prev) => prev.filter((t) => t.id !== order.id));
+      await OrderService.updateStatus(order.id, 'paid', {
+        completed_at: new Date().toISOString(),
+      });
+      if (order.order_type === 'takeout') {
+        await kitchenSoundService.playOrderReadySound('takeout');
+      } else {
+        await kitchenSoundService.playOrderReadySound(order.order_type);
+      }
       toast.success(`Order #${order.order_number} bumped`);
+      await refetch();
     } catch (err) {
       console.error(err);
       toast.error('Failed to bump order');
@@ -92,109 +198,127 @@ export default function Tickets() {
 
   return (
     <div className="flex-1 overflow-y-auto p-4 pos-tablet:p-5 pos-desktop:px-7 pos-desktop:py-6">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <ChefHat className="h-5 w-5 text-primary" />
-          <h2 className="text-lg font-bold text-foreground">Kitchen Display</h2>
+      <div className="mb-4 flex flex-col gap-4 rounded-2xl border border-border bg-card p-4 shadow-pos">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="rounded-xl bg-primary-tint p-2.5">
+              <ChefHat className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-foreground">Kitchen Display</h2>
+              <p className="text-sm text-muted-foreground">
+                {formatRefreshTime(lastRefresh)}
+                {' • '}
+                {realtimeConnected ? 'Realtime active' : autoRefresh ? 'Polling every 3s' : 'Manual refresh'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="secondary" className="bg-primary-tint text-primary">
+              {stats.total} Open
+            </Badge>
+            <Badge variant="secondary" className="bg-warning-tint text-warning">
+              {stats.urgent} Rush
+            </Badge>
+            <Badge variant="secondary" className="bg-success-tint text-success">
+              {stats.takeaway} Takeout
+            </Badge>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setAutoRefresh((current) => !current)}
+            >
+              {autoRefresh ? 'Auto-refresh on' : 'Auto-refresh off'}
+            </Button>
+
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => void refetch()}
+              aria-label="Refresh kitchen orders"
+            >
+              <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+            </Button>
+
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="icon" aria-label="Kitchen sound settings">
+                  {soundEnabled ? <Volume2 className="h-4 w-4" /> : <Settings2 className="h-4 w-4" />}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-auto p-4">
+                <SoundSettings onSettingsChange={(settings) => setSoundEnabled(settings.enabled)} />
+              </PopoverContent>
+            </Popover>
+
+            <div className="flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-xs text-muted-foreground">
+              {realtimeConnected ? (
+                <>
+                  <Wifi className="h-3.5 w-3.5 text-success" />
+                  Live
+                </>
+              ) : (
+                <>
+                  <WifiOff className="h-3.5 w-3.5 text-warning" />
+                  Fallback
+                </>
+              )}
+            </div>
+          </div>
         </div>
-        <span className="text-xs text-muted-foreground">
-          {tickets.length} open ticket{tickets.length !== 1 ? 's' : ''}
-          {' • auto-refreshing'}
-        </span>
+
+        <Tabs value={view} onValueChange={(value) => setView(value as 'active' | 'takeaway')}>
+          <TabsList className="grid w-full grid-cols-2 lg:w-[360px]">
+            <TabsTrigger value="active">Kitchen Orders</TabsTrigger>
+            <TabsTrigger value="takeaway">Takeaway Board</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value={view} className="mt-3">
+            <FilterPills items={filterTabs} active={typeFilter} onChange={setTypeFilter} />
+          </TabsContent>
+        </Tabs>
       </div>
 
-      {/* Filters */}
-      <FilterPills
-        items={filterTabs}
-        active={filter}
-        onChange={setFilter}
-        className="mb-4"
-      />
-
-      {/* Ticket grid */}
-      {loading ? (
-        <div className="grid pos-tablet:grid-cols-2 pos-desktop:grid-cols-3 gap-3">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-40 rounded-xl" />
+      {isLoading ? (
+        <div className="grid gap-3 pos-tablet:grid-cols-2 pos-desktop:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <Skeleton key={index} className="h-72 rounded-xl" />
           ))}
         </div>
-      ) : filtered.length === 0 ? (
+      ) : error ? (
+        <Card>
+          <CardContent className="pt-6">
+            <EmptyState
+              icon={<WifiOff className="h-10 w-10" />}
+              title="Kitchen feed unavailable"
+              description="Realtime failed or the kitchen query could not load. You can retry manually."
+              action={
+                <Button onClick={() => void refetch()}>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Retry
+                </Button>
+              }
+            />
+          </CardContent>
+        </Card>
+      ) : visibleTickets.length === 0 ? (
         <EmptyState
           icon={<ChefHat className="h-10 w-10" />}
-          title="Kitchen is clear"
-          description="No open tickets. New orders will appear automatically."
+          title={view === 'takeaway' ? 'No takeaway orders waiting' : 'Kitchen is clear'}
+          description="New tickets will appear automatically when they are opened."
         />
       ) : (
-        <div className="grid pos-tablet:grid-cols-2 pos-desktop:grid-cols-3 gap-3 pb-20 pos-tablet:pb-4">
-          {filtered.map((ticket) => {
-            const urg = urgencyClass(ticket.created_at);
-            const isBumping = bumpingId === ticket.id;
-            const typeLabel =
-              ticket.order_type === 'dine_in' ? 'Dine In'
-                : ticket.order_type === 'takeout' ? 'Take Away'
-                  : ticket.order_type;
-
-            return (
-              <div
-                key={ticket.id}
-                className={`bg-card rounded-xl border-2 ${urg.bg} p-4 flex flex-col`}
-              >
-                {/* Ticket header */}
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-bold text-primary">
-                    #{ticket.order_number}
-                  </span>
-                  <div className="flex items-center gap-1.5">
-                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                      {typeLabel}
-                    </Badge>
-                    <span className={`flex items-center gap-0.5 text-xs font-semibold ${urg.text}`}>
-                      <Clock className="h-3 w-3" />
-                      {urg.label}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Customer */}
-                <p className="text-sm font-medium text-foreground mb-2 truncate">
-                  {ticket.customer_name || 'Walk-in'}
-                </p>
-
-                {/* Items */}
-                <div className="flex-1 space-y-1 mb-3">
-                  {ticket.lines && ticket.lines.length > 0 ? (
-                    ticket.lines.slice(0, 6).map((line, i) => (
-                      <div key={i} className="flex justify-between text-xs">
-                        <span className="text-muted-foreground truncate mr-2">
-                          {line.quantity}× {line.item_name || 'Item'}
-                        </span>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-xs text-muted-foreground">Items loading...</p>
-                  )}
-                  {ticket.lines && ticket.lines.length > 6 && (
-                    <p className="text-[11px] text-muted-foreground">
-                      +{ticket.lines.length - 6} more items
-                    </p>
-                  )}
-                </div>
-
-                {/* Bump button */}
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => bumpOrder(ticket)}
-                  disabled={isBumping}
-                >
-                  <CheckCircle className="h-3.5 w-3.5 mr-1.5" />
-                  {isBumping ? 'Bumping...' : 'Bump Order'}
-                </Button>
-              </div>
-            );
-          })}
+        <div className="grid gap-3 pb-20 pos-tablet:grid-cols-2 pos-tablet:pb-4 pos-desktop:grid-cols-3">
+          {visibleTickets.map((ticket) => (
+            <TicketCard
+              key={ticket.id}
+              ticket={ticket}
+              bumpingId={bumpingId}
+              onBump={bumpOrder}
+            />
+          ))}
         </div>
       )}
     </div>

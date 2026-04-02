@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import {
+  bankersRound,
   round2,
+  calcSum,
+  mergeAndSum,
+  average,
   calcLineTotal,
   calcSubtotal,
   calcDiscountAmount,
@@ -35,12 +39,53 @@ function makeItem(overrides: Partial<CartItem> = {}): CartItem {
 }
 
 describe('round2', () => {
-  it('rounds to 2 decimal places', () => {
+  it('uses banker\'s rounding to 2 decimal places', () => {
     expect(round2(1.234)).toBe(1.23);
-    expect(round2(1.235)).toBe(1.24); // half-up
-    expect(round2(1.005)).toBe(1.01); // epsilon handling
+    expect(round2(1.235)).toBe(1.24);
+    expect(round2(1.245)).toBe(1.24);
+    expect(round2(1.005)).toBe(1.00);
     expect(round2(0)).toBe(0);
     expect(round2(-1.234)).toBe(-1.23);
+  });
+
+  it('handles bank rounding edge cases cleanly', () => {
+    expect(round2(0.005)).toBe(0.00);
+    expect(round2(0.015)).toBe(0.02);
+    expect(round2(0.025)).toBe(0.02);
+    expect(round2(0.035)).toBe(0.04);
+  });
+});
+
+describe('bankersRound', () => {
+  it('supports configurable precision', () => {
+    expect(bankersRound(2.5)).toBe(2);
+    expect(bankersRound(3.5)).toBe(4);
+    expect(bankersRound(1.125, 2)).toBe(1.12);
+    expect(bankersRound(1.135, 2)).toBe(1.14);
+  });
+});
+
+describe('aggregation helpers', () => {
+  it('sums numeric properties', () => {
+    const rows = [{ amount: 4 }, { amount: 6.5 }, { amount: 0 }];
+    expect(calcSum(rows, 'amount')).toBe(10.5);
+  });
+
+  it('groups and sums numeric properties', () => {
+    const rows = [
+      { tender: 'cash', amount: 10 },
+      { tender: 'card', amount: 20 },
+      { tender: 'cash', amount: 5 },
+    ];
+    expect(mergeAndSum(rows, 'tender', 'amount')).toEqual([
+      { tender: 'cash', sum: 15 },
+      { tender: 'card', sum: 20 },
+    ]);
+  });
+
+  it('calculates averages', () => {
+    expect(average([2, 4, 6, 8])).toBe(5);
+    expect(average([])).toBe(0);
   });
 });
 
@@ -126,7 +171,7 @@ describe('calcTaxableSubtotal', () => {
 describe('calcTaxAmount', () => {
   it('calculates tax correctly', () => {
     expect(calcTaxAmount(100, 8.25)).toBe(8.25);
-    expect(calcTaxAmount(50, 8.25)).toBe(4.13);
+    expect(calcTaxAmount(50, 8.25)).toBe(4.12);
     expect(calcTaxAmount(0, 8.25)).toBe(0);
     expect(calcTaxAmount(100, 0)).toBe(0);
   });
@@ -156,9 +201,9 @@ describe('calcCartTotals', () => {
     expect(totals.subtotal).toBe(20.00);
     expect(totals.discount_amount).toBe(2.00); // 20 * 10%
     expect(totals.taxable_subtotal).toBe(18.00); // 20 - 2
-    expect(totals.tax_amount).toBe(1.49); // 18 * 0.0825 = 1.485 → 1.49
+    expect(totals.tax_amount).toBe(1.48); // 18 * 0.0825 = 1.485 → 1.48
     expect(totals.tip_amount).toBe(3.00);
-    expect(totals.total).toBe(22.49); // 20 - 2 + 1.49 + 3
+    expect(totals.total).toBe(22.48); // 20 - 2 + 1.48 + 3
   });
 
   it('tracks balance due with partial payment', () => {

@@ -1,14 +1,63 @@
 // ============================================================
 // Cobalt POS — Calculation Engine
 // Deterministic: subtotal → discount → tax → tip → total
-// Rounding: half-up to 2 decimal places (standard US POS)
+// Rounding: banker's rounding to 2 decimal places
 // ============================================================
 
 import type { CartItem, CartDiscount, CartTotals } from '@/types/cart';
 
-/** Round to 2 decimal places using half-up (banker's standard) */
+/** Sum a numeric property across an array of objects */
+export function calcSum<T>(items: T[], propName: keyof T): number {
+  return items.reduce((sum, item) => {
+    const value = item[propName];
+    return sum + (typeof value === 'number' ? value : 0);
+  }, 0);
+}
+
+/** Group records by a property and sum another numeric property */
+export function mergeAndSum<T, K extends keyof T>(
+  items: T[],
+  groupKey: K,
+  sumKey: keyof T
+): Array<Pick<T, K> & { sum: number }> {
+  const grouped = new Map<T[K], number>();
+
+  items.forEach((item) => {
+    const key = item[groupKey];
+    const value = item[sumKey];
+    const sum = typeof value === 'number' ? value : 0;
+    grouped.set(key, (grouped.get(key) ?? 0) + sum);
+  });
+
+  return Array.from(grouped.entries()).map(([key, sum]) => ({
+    [groupKey]: key,
+    sum,
+  })) as Array<Pick<T, K> & { sum: number }>;
+}
+
+/** Calculate the arithmetic mean of a list of numbers */
+export function average(items: number[]): number {
+  return items.length > 0 ? items.reduce((sum, item) => sum + item, 0) / items.length : 0;
+}
+
+/** Round using banker's rounding (round half to even) */
+export function bankersRound(num: number, decimalPlaces: number = 0): number {
+  const multiplier = 10 ** decimalPlaces;
+  const shifted = +(decimalPlaces ? num * multiplier : num).toFixed(8);
+  const integer = Math.floor(shifted);
+  const fraction = shifted - integer;
+  const epsilon = 1e-8;
+  const rounded =
+    fraction > 0.5 - epsilon && fraction < 0.5 + epsilon
+      ? integer + (integer % 2)
+      : Math.round(shifted);
+
+  return decimalPlaces ? rounded / multiplier : rounded;
+}
+
+/** Round to 2 decimal places using banker's rounding */
 export function round2(n: number): number {
-  return Math.round((n + Number.EPSILON) * 100) / 100;
+  return bankersRound(n, 2);
 }
 
 /** Calculate line total for a single cart item */

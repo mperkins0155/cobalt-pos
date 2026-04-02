@@ -4,34 +4,40 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/hooks/useCart';
 import { CatalogService } from '@/services/catalog';
 import { formatCurrency } from '@/lib/calculations';
+import type { CartItemModifier } from '@/types/cart';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { SearchBar, FilterPills, EmptyState, ModifierModal } from '@/components/pos';
 import {
-  ShoppingCart, Settings, ClipboardList, Users, BarChart3,
-  LogOut, Search, Minus, Plus, Trash2, X, Package, Tag,
-  MapPin, ScanBarcode, ReceiptText, Archive,
+  ShoppingCart,
+  Minus,
+  Plus,
+  Trash2,
+  Tag,
+  Package,
 } from 'lucide-react';
-import type { Category, Item } from '@/types/database';
-import type { CartItemModifier } from '@/types/cart';
+import type { Category, Item, ModifierGroupWithOptions } from '@/types/database';
+
+type ItemWithModifiers = Item & { modifier_groups: ModifierGroupWithOptions[] };
 
 export default function POS() {
   const navigate = useNavigate();
-  const { organization, profile, currentLocation, signOut, defaultTaxRate, hasRole } = useAuth();
+  const { organization, defaultTaxRate } = useAuth();
   const cart = useCart({ defaultTaxRate: defaultTaxRate?.rate || 0 });
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [items, setItems] = useState<Item[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<string | undefined>();
+  const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [mobileCartOpen, setMobileCartOpen] = useState(false);
+  const [modifierItem, setModifierItem] = useState<ItemWithModifiers | null>(null);
   const barcodeBuffer = useRef('');
   const barcodeTimer = useRef<ReturnType<typeof setTimeout>>();
 
-  // Load catalog
   useEffect(() => {
     if (!organization) return;
     const load = async () => {
@@ -48,26 +54,26 @@ export default function POS() {
         setLoading(false);
       }
     };
-    load();
+    void load();
   }, [organization]);
 
-  // Barcode scanner (keyboard wedge)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if focused on an input
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement)?.tagName)) return;
 
       if (e.key === 'Enter' && barcodeBuffer.current.length >= 4) {
         const barcode = barcodeBuffer.current;
         barcodeBuffer.current = '';
-        handleBarcodeScan(barcode);
+        void handleBarcodeScan(barcode);
         return;
       }
 
       if (e.key.length === 1) {
         barcodeBuffer.current += e.key;
         clearTimeout(barcodeTimer.current);
-        barcodeTimer.current = setTimeout(() => { barcodeBuffer.current = ''; }, 100);
+        barcodeTimer.current = setTimeout(() => {
+          barcodeBuffer.current = '';
+        }, 100);
       }
     };
 
@@ -91,15 +97,14 @@ export default function POS() {
   };
 
   const handleAddToCart = useCallback(async (item: Item) => {
-    // Check for modifiers
     try {
       const fullItem = await CatalogService.getItemWithModifiers(item.id);
       if (fullItem.modifier_groups.length > 0) {
-        // TODO: Open modifier modal
-        // For now, add without modifiers
+        setModifierItem(fullItem);
+        return;
       }
     } catch {
-      // Fall through
+      // If modifier loading fails, still allow adding the base item.
     }
 
     cart.addItem({
@@ -110,84 +115,131 @@ export default function POS() {
     });
   }, [cart]);
 
+  const handleAddWithModifiers = useCallback(
+    ({ modifiers, quantity }: { modifiers: CartItemModifier[]; quantity: number }) => {
+      if (!modifierItem) return;
+      cart.addItem({
+        item_id: modifierItem.id,
+        item_name: modifierItem.name,
+        unit_price: modifierItem.base_price,
+        quantity,
+        modifiers,
+        is_taxable: modifierItem.taxable,
+      });
+      setModifierItem(null);
+    },
+    [cart, modifierItem]
+  );
+
   const handleCheckout = () => {
     if (cart.isEmpty) return;
     navigate('/pos/checkout');
   };
 
-  // Filter items
-  const filteredItems = items.filter(item => {
-    const matchesCategory = !selectedCategory || item.category_id === selectedCategory;
-    const matchesSearch = !searchQuery ||
+  const categoryTabs = [
+    { key: 'all', label: 'All', count: items.length },
+    ...categories.map((category) => ({
+      key: category.id,
+      label: category.name,
+      count: items.filter((item) => item.category_id === category.id).length,
+    })),
+  ];
+
+  const filteredItems = items.filter((item) => {
+    const matchesCategory =
+      selectedCategory === 'all' || item.category_id === selectedCategory;
+    const matchesSearch =
+      !searchQuery ||
       item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.sku?.toLowerCase().includes(searchQuery.toLowerCase());
+
     return matchesCategory && matchesSearch;
   });
 
-  // ---- Render ----
-
   const CartPanel = () => (
-    <div className="flex flex-col h-full">
-      <div className="p-3 border-b flex items-center justify-between">
-        <h2 className="font-semibold text-sm">
-          Cart {cart.itemCount > 0 && <Badge variant="secondary" className="ml-1">{cart.itemCount}</Badge>}
+    <div className="flex h-full flex-col">
+      <div className="flex items-center justify-between border-b border-border p-3">
+        <h2 className="text-sm font-bold text-foreground">
+          Order Details
+          {cart.itemCount > 0 && (
+            <Badge variant="secondary" className="ml-2 text-[10px]">
+              {cart.itemCount}
+            </Badge>
+          )}
         </h2>
         {cart.items.length > 0 && (
-          <Button variant="ghost" size="sm" onClick={cart.clearCart} className="text-xs h-7">
-            Clear
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={cart.clearCart}
+            className="h-7 text-xs text-destructive hover:text-destructive"
+          >
+            Reset
           </Button>
         )}
       </div>
 
       <ScrollArea className="flex-1">
         {cart.items.length === 0 ? (
-          <div className="p-8 text-center text-muted-foreground">
-            <ShoppingCart className="h-10 w-10 mx-auto mb-2 opacity-40" />
-            <p className="text-sm">Cart is empty</p>
-            <p className="text-xs mt-1">Tap items or scan barcode to add</p>
-          </div>
+          <EmptyState
+            icon={<ShoppingCart className="h-8 w-8" />}
+            title="Cart is empty"
+            description="Tap items or scan barcode"
+            className="py-10"
+          />
         ) : (
-          <div className="p-2 space-y-1">
-            {cart.items.map(item => (
-              <div key={item.id} className="bg-card border rounded-lg p-2.5">
-                <div className="flex justify-between items-start gap-2">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{item.item_name}</p>
+          <div className="space-y-1.5 p-2.5">
+            {cart.items.map((item) => (
+              <div key={item.id} className="rounded-lg border border-border bg-card p-2.5">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-foreground">
+                      {item.item_name}
+                    </p>
                     {item.variant_name && (
                       <p className="text-xs text-muted-foreground">{item.variant_name}</p>
                     )}
                     {item.modifiers.length > 0 && (
                       <p className="text-xs text-muted-foreground">
-                        {item.modifiers.map(m => m.option_name).join(', ')}
+                        {item.modifiers.map((modifier) => modifier.option_name).join(', ')}
                       </p>
                     )}
-                    {item.notes && (
-                      <p className="text-xs text-blue-600 italic">{item.notes}</p>
-                    )}
+                    {item.notes && <p className="text-xs italic text-primary">{item.notes}</p>}
                   </div>
-                  <p className="text-sm font-medium whitespace-nowrap">
+                  <p className="whitespace-nowrap text-sm font-bold text-foreground">
                     {formatCurrency(item.line_total)}
                   </p>
                 </div>
-                <div className="flex items-center justify-between mt-2">
+                <div className="mt-2 flex items-center justify-between">
                   <div className="flex items-center gap-1">
                     <Button
-                      variant="outline" size="icon" className="h-7 w-7"
+                      variant="outline"
+                      size="icon"
+                      className="h-7 w-7"
                       onClick={() => cart.updateQuantity(item.id, item.quantity - 1)}
+                      aria-label="Decrease quantity"
                     >
                       <Minus className="h-3 w-3" />
                     </Button>
-                    <span className="w-8 text-center text-sm font-medium">{item.quantity}</span>
+                    <span className="w-8 text-center text-sm font-semibold tabular-nums">
+                      {item.quantity}
+                    </span>
                     <Button
-                      variant="outline" size="icon" className="h-7 w-7"
+                      variant="outline"
+                      size="icon"
+                      className="h-7 w-7"
                       onClick={() => cart.updateQuantity(item.id, item.quantity + 1)}
+                      aria-label="Increase quantity"
                     >
                       <Plus className="h-3 w-3" />
                     </Button>
                   </div>
                   <Button
-                    variant="ghost" size="icon" className="h-7 w-7 text-destructive"
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-destructive hover:text-destructive"
                     onClick={() => cart.removeItem(item.id)}
+                    aria-label="Remove item"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
@@ -198,29 +250,27 @@ export default function POS() {
         )}
       </ScrollArea>
 
-      {/* Totals */}
       {cart.items.length > 0 && (
-        <div className="border-t p-3 space-y-1.5">
+        <div className="space-y-1.5 border-t border-border p-3">
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Subtotal</span>
-            <span>{formatCurrency(cart.totals.subtotal)}</span>
+            <span className="text-foreground">{formatCurrency(cart.totals.subtotal)}</span>
           </div>
           {cart.totals.discount_amount > 0 && (
-            <div className="flex justify-between text-sm text-green-600">
+            <div className="flex justify-between text-sm text-success">
               <span>Discount</span>
               <span>-{formatCurrency(cart.totals.discount_amount)}</span>
             </div>
           )}
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Tax</span>
-            <span>{formatCurrency(cart.totals.tax_amount)}</span>
+            <span className="text-foreground">{formatCurrency(cart.totals.tax_amount)}</span>
           </div>
-          <div className="flex justify-between font-bold text-base border-t pt-1.5">
+          <div className="flex justify-between border-t border-border pt-2 text-base font-bold">
             <span>Total</span>
             <span>{formatCurrency(cart.totals.total)}</span>
           </div>
-
-          <Button className="w-full mt-2 h-12 text-base font-semibold" onClick={handleCheckout}>
+          <Button className="mt-2 h-12 w-full text-base font-bold" onClick={handleCheckout}>
             Charge {formatCurrency(cart.totals.total)}
           </Button>
         </div>
@@ -229,154 +279,78 @@ export default function POS() {
   );
 
   return (
-    <div className="h-screen flex flex-col bg-background">
-      {/* Header */}
-      <header className="bg-primary text-primary-foreground px-4 py-2 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-3">
-          <div>
-            <h1 className="text-base font-bold leading-tight">{organization?.name || 'Cobalt POS'}</h1>
-            <div className="flex items-center gap-2 text-xs opacity-80">
-              <span>{profile?.first_name} ({profile?.role})</span>
-              {currentLocation && (
-                <>
-                  <span>•</span>
-                  <span className="flex items-center gap-0.5">
-                    <MapPin className="h-3 w-3" />
-                    {currentLocation.name}
-                  </span>
-                </>
-              )}
-            </div>
-          </div>
+    <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <div className="shrink-0 space-y-2.5 border-b border-border p-3 pos-tablet:p-4">
+          <SearchBar
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder="Search items or scan barcode..."
+          />
+          <FilterPills
+            items={categoryTabs}
+            active={selectedCategory}
+            onChange={setSelectedCategory}
+          />
         </div>
-        <div className="flex items-center gap-1">
-          <Button variant="ghost" size="sm" className="text-primary-foreground h-8 px-2 text-xs" onClick={() => navigate('/pos/tickets')}>
-            <ReceiptText className="h-4 w-4 mr-1" />Tickets
-          </Button>
-          <Button variant="ghost" size="sm" className="text-primary-foreground h-8 px-2 text-xs" onClick={() => navigate('/orders')}>
-            <ClipboardList className="h-4 w-4 mr-1" />Orders
-          </Button>
-          {hasRole('manager') && (
-            <>
-              <Button variant="ghost" size="sm" className="text-primary-foreground h-8 px-2 text-xs" onClick={() => navigate('/customers')}>
-                <Users className="h-4 w-4 mr-1" />Customers
-              </Button>
-              <Button variant="ghost" size="sm" className="text-primary-foreground h-8 px-2 text-xs" onClick={() => navigate('/reports')}>
-                <BarChart3 className="h-4 w-4 mr-1" />Reports
-              </Button>
-              <Button variant="ghost" size="sm" className="text-primary-foreground h-8 px-2 text-xs" onClick={() => navigate('/settings')}>
-                <Settings className="h-4 w-4" />
-              </Button>
-            </>
+
+        <ScrollArea className="flex-1 p-3 pos-tablet:p-4">
+          {loading ? (
+            <div className="grid grid-cols-2 gap-2.5 pos-tablet:grid-cols-3 pos-desktop:grid-cols-4">
+              {Array.from({ length: 12 }).map((_, index) => (
+                <Skeleton key={index} className="h-28 rounded-xl" />
+              ))}
+            </div>
+          ) : filteredItems.length === 0 ? (
+            <EmptyState
+              icon={<Package className="h-10 w-10" />}
+              title="No items found"
+              description={
+                searchQuery ? `No results for "${searchQuery}"` : 'Add items in the catalog.'
+              }
+            />
+          ) : (
+            <div className="grid grid-cols-2 gap-2.5 pb-20 pos-tablet:grid-cols-3 pos-desktop:grid-cols-4 lg:pb-4">
+              {filteredItems.map((item) => (
+                <button
+                  key={item.id}
+                  className="rounded-xl border border-border bg-card p-3 text-left transition-all hover:border-primary hover:shadow-pos active:scale-[0.98]"
+                  onClick={() => {
+                    void handleAddToCart(item);
+                  }}
+                >
+                  {item.image_url ? (
+                    <img
+                      src={item.image_url}
+                      alt={item.name}
+                      className="mb-2 h-16 w-full rounded-lg object-cover"
+                    />
+                  ) : (
+                    <div className="mb-2 flex h-16 w-full items-center justify-center rounded-lg bg-muted">
+                      <Tag className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                  )}
+                  <p className="truncate text-sm font-semibold text-foreground">{item.name}</p>
+                  <p className="text-sm font-bold text-primary">
+                    {formatCurrency(item.base_price)}
+                  </p>
+                </button>
+              ))}
+            </div>
           )}
-          <Button variant="ghost" size="sm" className="text-primary-foreground h-8 px-2 text-xs" onClick={signOut}>
-            <LogOut className="h-4 w-4" />
-          </Button>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left: Product Grid */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Search + Categories */}
-          <div className="p-3 space-y-2 border-b shrink-0">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search items or scan barcode..."
-                className="pl-9 h-9"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-              {searchQuery && (
-                <Button
-                  variant="ghost" size="icon"
-                  className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
-                  onClick={() => setSearchQuery('')}
-                >
-                  <X className="h-3.5 w-3.5" />
-                </Button>
-              )}
-            </div>
-            <ScrollArea className="w-full" orientation="horizontal">
-              <div className="flex gap-1.5 pb-1">
-                <Button
-                  variant={!selectedCategory ? 'default' : 'outline'}
-                  size="sm" className="h-7 text-xs shrink-0"
-                  onClick={() => setSelectedCategory(undefined)}
-                >
-                  All
-                </Button>
-                {categories.map(cat => (
-                  <Button
-                    key={cat.id}
-                    variant={selectedCategory === cat.id ? 'default' : 'outline'}
-                    size="sm" className="h-7 text-xs shrink-0"
-                    onClick={() => setSelectedCategory(cat.id)}
-                  >
-                    {cat.icon && <span className="mr-1">{cat.icon}</span>}
-                    {cat.name}
-                  </Button>
-                ))}
-              </div>
-            </ScrollArea>
-          </div>
-
-          {/* Items Grid */}
-          <ScrollArea className="flex-1 p-3">
-            {loading ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
-                {Array.from({ length: 12 }).map((_, i) => (
-                  <div key={i} className="h-24 rounded-lg bg-muted animate-pulse" />
-                ))}
-              </div>
-            ) : filteredItems.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
-                <Package className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                <p className="text-sm">No items found</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
-                {filteredItems.map(item => (
-                  <button
-                    key={item.id}
-                    className="bg-card border rounded-lg p-3 text-left hover:border-primary hover:shadow-sm transition-all active:scale-[0.98]"
-                    onClick={() => handleAddToCart(item)}
-                  >
-                    {item.image_url ? (
-                      <img
-                        src={item.image_url}
-                        alt={item.name}
-                        className="w-full h-14 object-cover rounded mb-2"
-                      />
-                    ) : (
-                      <div className="w-full h-14 bg-muted rounded mb-2 flex items-center justify-center">
-                        <Tag className="h-5 w-5 text-muted-foreground" />
-                      </div>
-                    )}
-                    <p className="text-sm font-medium truncate">{item.name}</p>
-                    <p className="text-sm text-primary font-semibold">{formatCurrency(item.base_price)}</p>
-                  </button>
-                ))}
-              </div>
-            )}
-          </ScrollArea>
-        </div>
-
-        {/* Right: Cart (desktop) */}
-        <div className="w-80 xl:w-96 border-l hidden lg:flex flex-col">
-          <CartPanel />
-        </div>
+        </ScrollArea>
       </div>
 
-      {/* Mobile Cart FAB */}
+      <div className="hidden w-80 flex-col border-l border-border bg-card lg:flex xl:w-96">
+        <CartPanel />
+      </div>
+
       {cart.itemCount > 0 && (
-        <div className="lg:hidden fixed bottom-4 left-4 right-4">
+        <div className="fixed bottom-20 left-4 right-4 z-30 lg:hidden">
           <Sheet open={mobileCartOpen} onOpenChange={setMobileCartOpen}>
             <SheetTrigger asChild>
-              <Button className="w-full h-14 text-base font-semibold shadow-lg rounded-xl">
-                <ShoppingCart className="h-5 w-5 mr-2" />
+              <Button className="h-14 w-full rounded-xl text-base font-bold shadow-pos-lg">
+                <ShoppingCart className="mr-2 h-5 w-5" />
                 View Cart ({cart.itemCount}) — {formatCurrency(cart.totals.total)}
               </Button>
             </SheetTrigger>
@@ -386,6 +360,13 @@ export default function POS() {
           </Sheet>
         </div>
       )}
+
+      <ModifierModal
+        item={modifierItem}
+        open={modifierItem !== null}
+        onClose={() => setModifierItem(null)}
+        onAddToCart={handleAddWithModifiers}
+      />
     </div>
   );
 }
