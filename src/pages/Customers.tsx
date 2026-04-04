@@ -1,3 +1,4 @@
+import { toast } from '@/components/ui/sonner';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Users } from 'lucide-react';
@@ -29,6 +30,7 @@ export default function Customers() {
         }
       } catch (err) {
         console.error(err);
+        toast.error('Failed to load customers');
       } finally {
         setLoading(false);
       }

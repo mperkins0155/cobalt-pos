@@ -1,3 +1,4 @@
+import { toast } from '@/components/ui/sonner';
 import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Package } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -32,6 +33,7 @@ export default function Inventory() {
         setRecords(data);
       } catch (err) {
         console.error('Inventory load error:', err);
+        toast.error('Failed to load inventory');
       } finally {
         setLoading(false);
       }

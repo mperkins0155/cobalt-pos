@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { ReportingService, type CloseoutReport } from '@/services/reporting';
 import { formatCurrency } from '@/lib/calculations';
+import { toast } from '@/components/ui/sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -32,7 +33,7 @@ export default function Closeout() {
     if (!organization || !currentLocation) return;
     ReportingService.getCurrentShift(organization.id, currentLocation.id)
       .then(setShift)
-      .catch(console.error)
+      .catch((err: unknown) => { console.error(err); toast.error('Failed to load shift data'); })
       .finally(() => setLoading(false));
   }, [organization, currentLocation]);
 
@@ -59,6 +60,7 @@ export default function Closeout() {
       setReport(r);
     } catch (err) {
       console.error(err);
+      toast.error('Failed to close shift');
     } finally {
       setClosing(false);
     }

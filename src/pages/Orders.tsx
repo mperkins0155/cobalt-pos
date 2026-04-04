@@ -1,3 +1,4 @@
+import { toast } from '@/components/ui/sonner';
 // ============================================================
 // CloudPos — Orders Page
 // Phase 0D: Enhanced from cobalt-pos Orders.tsx + prototype OrderListPage
@@ -47,6 +48,7 @@ export default function Orders() {
         setOrders(orders);
       } catch (err) {
         console.error('Failed to load orders:', err);
+        toast.error('Failed to load orders');
       } finally {
         setLoading(false);
       }

@@ -1,3 +1,4 @@
+import { toast } from '@/components/ui/sonner';
 // ============================================================
 // CloudPos — Customer Detail Page
 // Phase 0D: Built from stub + prototype CustomerProfileModal
@@ -46,6 +47,7 @@ export default function CustomerDetail() {
         setOrders(history);
       } catch (err) {
         console.error('Customer load error:', err);
+        toast.error('Failed to load customer data');
       } finally {
         setLoading(false);
       }

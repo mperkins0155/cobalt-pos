@@ -1,3 +1,4 @@
+import { toast } from '@/components/ui/sonner';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Clock, Receipt } from 'lucide-react';
@@ -37,6 +38,7 @@ export default function History() {
         setOrders(rows);
       } catch (err) {
         console.error('History load error:', err);
+        toast.error('Failed to load order history');
       } finally {
         setLoading(false);
       }

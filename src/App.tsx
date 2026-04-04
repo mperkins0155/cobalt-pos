@@ -59,8 +59,26 @@ function ProtectedRoute() {
 function ManagerRoute() {
   const { hasRole, loading } = useAuth();
   if (loading) return <LoadingFallback />;
-  if (!hasRole('manager')) return <Navigate to="/dashboard" replace />;
+  if (!hasRole('manager')) return <Navigate to={defaultRouteForRole('cashier')} replace />;
   return <Outlet />;
+}
+
+/** Default landing page per role */
+function defaultRouteForRole(role: string): string {
+  switch (role) {
+    case 'owner':
+    case 'manager':
+      return '/dashboard';
+    case 'cashier':
+      return '/pos';
+    default:
+      return '/pos';
+  }
+}
+
+function RoleRedirect() {
+  const { profile } = useAuth();
+  return <Navigate to={defaultRouteForRole(profile?.role || 'cashier')} replace />;
 }
 
 function AppRoutes() {
@@ -96,13 +114,15 @@ function AppRoutes() {
             <Route path="/customers" element={<Customers />} />
             <Route path="/customers/:customerId" element={<CustomerDetail />} />
 
+            {/* Tables & floor — all roles (cashiers need for dine-in) */}
+            <Route path="/table-floor" element={<TableFloor />} />
+            <Route path="/reservations" element={<Reservations />} />
+
             {/* Manager+ routes */}
             <Route element={<ManagerRoute />}>
               <Route path="/staff" element={<Staff />} />
               <Route path="/catalog" element={<Catalog />} />
               <Route path="/inventory" element={<Inventory />} />
-              <Route path="/reservations" element={<Reservations />} />
-              <Route path="/table-floor" element={<TableFloor />} />
               <Route path="/suppliers" element={<Suppliers />} />
               <Route path="/purchasing" element={<Purchasing />} />
               <Route path="/quotations" element={<Quotations />} />
@@ -112,12 +132,12 @@ function AppRoutes() {
               <Route path="/settings" element={<Settings />} />
             </Route>
 
-            {/* Default */}
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            {/* Default — role-aware redirect */}
+            <Route path="/" element={<RoleRedirect />} />
           </Route>
         </Route>
 
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Suspense>
   );

@@ -1,3 +1,4 @@
+import { toast } from '@/components/ui/sonner';
 // ============================================================
 // CloudPos — Dashboard Page
 // Phase 0D: Extracted from prototype DashboardContent
@@ -66,6 +67,7 @@ export default function Dashboard() {
         setSummary(summaryRes);
       } catch (err) {
         console.error('Dashboard load error:', err);
+        toast.error('Failed to load dashboard data');
       } finally {
         setLoading(false);
       }

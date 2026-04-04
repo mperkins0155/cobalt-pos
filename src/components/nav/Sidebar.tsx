@@ -94,7 +94,7 @@ export function Sidebar({ userName, userInitials, userRole, onLogout }: SidebarP
         </div>
         <div className="min-w-0">
           <div className="text-xs font-semibold text-foreground truncate">{userName}</div>
-          <div className="text-[10px] text-muted-foreground">On Shift</div>
+          <div className="text-[10px] text-muted-foreground capitalize">{userRole}</div>
         </div>
       </div>
     </div>
