@@ -12,6 +12,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatCard } from '@/components/pos';
+import { DateRangePicker } from '@/components/DateRangePicker';
+import { getDateRanges, type DateRange } from '@/lib/dateRanges';
 import type { InventoryRecord, Order, Reservation } from '@/types/database';
 
 type ReportOrderTypePoint = { type: string; total: number; count: number };
@@ -21,15 +23,10 @@ const PaymentBreakdownChart = lazy(() => import('@/components/reports/PaymentBre
 const OrderTypeRevenueChart = lazy(() => import('@/components/reports/OrderTypeRevenueChart'));
 const HourlyVolumeChart = lazy(() => import('@/components/reports/HourlyVolumeChart'));
 
-function startOfToday() {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return today;
-}
-
 export default function Reports() {
   const navigate = useNavigate();
   const { organization, currentLocation } = useAuth();
+  const [dateRange, setDateRange] = useState<DateRange>(() => getDateRanges()[0]); // Today
   const [summary, setSummary] = useState<SalesSummary | null>(null);
   const [lowStock, setLowStock] = useState<InventoryRecord[]>([]);
   const [upcomingRes, setUpcomingRes] = useState<Reservation[]>([]);
@@ -39,12 +36,12 @@ export default function Reports() {
 
   useEffect(() => {
     if (!organization) return;
-    const dayStart = startOfToday();
 
     const load = async () => {
+      setLoading(true);
       try {
         const [sales, stock, reservations, exp, orderResult] = await Promise.all([
-          ReportingService.getSalesSummary(organization.id, currentLocation?.id, dayStart.toISOString()),
+          ReportingService.getSalesSummary(organization.id, currentLocation?.id, dateRange.from.toISOString()),
           InventoryService.getLowStockAlerts(organization.id, currentLocation?.id),
           ReservationService.listUpcoming(organization.id, currentLocation?.id, 5),
           ExpenseService.getSummary(organization.id, currentLocation?.id),
@@ -52,7 +49,7 @@ export default function Reports() {
             orgId: organization.id,
             locationId: currentLocation?.id,
             status: 'paid',
-            dateFrom: dayStart.toISOString(),
+            dateFrom: dateRange.from.toISOString(),
             limit: 500,
           }),
         ]);
@@ -70,7 +67,7 @@ export default function Reports() {
     };
 
     void load();
-  }, [organization, currentLocation]);
+  }, [organization, currentLocation, dateRange]);
 
   const orderTypeRevenue = useMemo<ReportOrderTypePoint[]>(() => {
     const totals = new Map<string, ReportOrderTypePoint>();
@@ -113,10 +110,17 @@ export default function Reports() {
           <BarChart3 className="h-5 w-5 text-primary" />
           <h2 className="text-lg font-bold text-foreground">Reports</h2>
         </div>
-        <Button variant="outline" size="sm" onClick={() => navigate('/reports/closeout')}>
-          <FileText className="mr-1.5 h-3.5 w-3.5" />
-          Z-Report
-        </Button>
+        <div className="flex items-center gap-2">
+          <DateRangePicker
+            value={dateRange}
+            onChange={setDateRange}
+            className="w-[200px]"
+          />
+          <Button variant="outline" size="sm" onClick={() => navigate('/reports/closeout')}>
+            <FileText className="mr-1.5 h-3.5 w-3.5" />
+            Z-Report
+          </Button>
+        </div>
       </div>
 
       {loading ? (

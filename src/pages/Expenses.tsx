@@ -1,193 +1,174 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Wallet, Plus, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { ExpenseService } from '@/services/expenses';
+import { formatCurrency } from '@/lib/calculations';
+import { DataTable } from '@/components/DataTable';
+import { SearchBar, FilterPills, StatCard } from '@/components/pos';
+import { expenseColumns } from '@/columns';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { formatCurrency } from '@/lib/calculations';
-import { ExpenseService } from '@/services/expenses';
 import { toast } from '@/components/ui/sonner';
-import { Badge } from '@/components/ui/badge';
+import { DollarSign, Plus, Loader2, Wallet, TrendingDown } from 'lucide-react';
 import type { Expense, ExpenseCategory, ExpenseStatus } from '@/types/database';
 
 export default function Expenses() {
-  const navigate = useNavigate();
   const { organization, currentLocation, profile } = useAuth();
-
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
-  const [category, setCategory] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [search, setSearch] = useState('');
+
+  // Form state
+  const [showForm, setShowForm] = useState(false);
+  const [categoryName, setCategoryName] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState('');
   const [notes, setNotes] = useState('');
-  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   const loadData = async () => {
     if (!organization) return;
     setLoading(true);
     try {
-      const [expenseResult, categoryResult] = await Promise.all([
+      const [expResult, catResult] = await Promise.all([
         ExpenseService.list({ orgId: organization.id, locationId: currentLocation?.id, limit: 200 }),
         ExpenseService.listCategories(organization.id),
       ]);
-      setExpenses(expenseResult.expenses);
-      setCategories(categoryResult);
-      if (!categoryId && categoryResult.length > 0) {
-        setCategoryId(categoryResult[0].id);
-      }
-    } catch (error) {
-      console.error(error);
+      setExpenses(expResult.expenses);
+      setCategories(catResult);
+      if (!categoryId && catResult.length > 0) setCategoryId(catResult[0].id);
+    } catch (err) {
+      console.error(err);
       toast.error('Failed to load expenses');
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    void loadData();
-  }, [organization?.id, currentLocation?.id]);
+  useEffect(() => { void loadData(); }, [organization?.id, currentLocation?.id]);
 
-  const totalExpenses = useMemo(() => expenses.reduce((sum, expense) => sum + expense.total_amount, 0), [expenses]);
+  const totalAmount = useMemo(() => expenses.reduce((s, e) => s + e.total_amount, 0), [expenses]);
+  const statusCounts = useMemo(() => {
+    const c: Record<string, number> = { all: expenses.length };
+    for (const e of expenses) c[e.status] = (c[e.status] || 0) + 1;
+    return c;
+  }, [expenses]);
+
+  const filtered = useMemo(() => {
+    let r = expenses;
+    if (statusFilter !== 'all') r = r.filter((e) => e.status === statusFilter);
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      r = r.filter((e) =>
+        (e.supplier?.name || '').toLowerCase().includes(q) ||
+        (e.category?.name || '').toLowerCase().includes(q) ||
+        (e.expense_number || '').toLowerCase().includes(q)
+      );
+    }
+    return r;
+  }, [expenses, statusFilter, search]);
 
   const addExpense = async () => {
     if (!organization) return;
-    const numericAmount = Number(amount);
-    if ((!category.trim() && !categoryId) || Number.isNaN(numericAmount) || numericAmount <= 0) return;
-
+    const num = Number(amount);
+    if (Number.isNaN(num) || num <= 0) { toast.error('Enter a valid amount'); return; }
     setSubmitting(true);
     try {
-      let useCategoryId = categoryId || undefined;
-      if (category.trim()) {
-        const ensured = await ExpenseService.ensureCategory(organization.id, category.trim());
-        useCategoryId = ensured.id;
-        if (!categories.find(item => item.id === ensured.id)) {
-          setCategories(prev => [...prev, ensured].sort((a, b) => a.name.localeCompare(b.name)));
+      let useCatId = categoryId || undefined;
+      if (categoryName.trim()) {
+        const ensured = await ExpenseService.ensureCategory(organization.id, categoryName.trim());
+        useCatId = ensured.id;
+        if (!categories.find((c) => c.id === ensured.id)) {
+          setCategories((prev) => [...prev, ensured].sort((a, b) => a.name.localeCompare(b.name)));
         }
       }
       const created = await ExpenseService.create({
         orgId: organization.id,
         locationId: currentLocation?.id,
-        categoryId: useCategoryId,
-        subtotalAmount: numericAmount,
+        categoryId: useCatId,
+        subtotalAmount: num,
         expenseDate: date || new Date().toISOString().slice(0, 10),
         notes: notes.trim() || undefined,
         createdBy: profile?.id,
       });
-      setExpenses(prev => [created, ...prev]);
+      setExpenses((prev) => [created, ...prev]);
       toast.success('Expense recorded');
-    } catch (error) {
-      console.error(error);
+      setCategoryName(''); setAmount(''); setDate(''); setNotes('');
+      setShowForm(false);
+    } catch (err) {
+      console.error(err);
       toast.error('Failed to record expense');
     } finally {
       setSubmitting(false);
     }
-
-    setCategory('');
-    setAmount('');
-    setDate('');
-    setNotes('');
   };
 
-  const setStatus = async (expense: Expense, status: ExpenseStatus) => {
-    setUpdatingId(expense.id);
-    try {
-      const updated = await ExpenseService.setStatus(expense.id, status);
-      setExpenses(prev => prev.map(row => (row.id === expense.id ? updated : row)));
-      toast.success(`Expense marked ${status}`);
-    } catch (error) {
-      console.error(error);
-      toast.error('Failed to update expense');
-    } finally {
-      setUpdatingId(null);
-    }
-  };
+  const filterTabs = [
+    { key: 'all', label: 'All', count: statusCounts.all || 0 },
+    { key: 'draft', label: 'Draft', count: statusCounts.draft || 0 },
+    { key: 'submitted', label: 'Submitted', count: statusCounts.submitted || 0 },
+    { key: 'approved', label: 'Approved', count: statusCounts.approved || 0 },
+    { key: 'paid', label: 'Paid', count: statusCounts.paid || 0 },
+  ];
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="bg-primary text-primary-foreground px-4 py-3 flex items-center gap-3">
-        <Button variant="ghost" size="icon" className="text-primary-foreground" onClick={() => navigate('/settings')}>
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <h1 className="text-lg font-bold">Expenses</h1>
-        <div className="ml-auto">
-          <Button variant="ghost" size="sm" className="text-primary-foreground text-xs" onClick={() => navigate('/quotations')}>
-            Quotations
-          </Button>
+    <div className="flex-1 overflow-y-auto p-4 pos-tablet:p-5 pos-desktop:px-7 pos-desktop:py-6">
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Wallet className="h-5 w-5 text-primary" />
+          <h2 className="text-lg font-bold text-foreground">Expenses</h2>
         </div>
-      </header>
+        <Button onClick={() => setShowForm((v) => !v)}>
+          <Plus className="mr-1.5 h-4 w-4" />
+          Record Expense
+        </Button>
+      </div>
 
-      <div className="p-4 max-w-3xl mx-auto space-y-3">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Record Expense</CardTitle>
-          </CardHeader>
-          <CardContent className="grid grid-cols-1 md:grid-cols-5 gap-2">
-            <Input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Category" />
-            <select
-              value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value)}
-              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-            >
-              <option value="">Select category (optional)</option>
-              {categories.map((item) => (
-                <option key={item.id} value={item.id}>{item.name}</option>
-              ))}
+      <div className="mb-4 grid grid-cols-2 gap-3 pos-desktop:grid-cols-3">
+        <StatCard icon={<DollarSign className="h-4 w-4" />} label="Total" value={formatCurrency(totalAmount)} accent="primary" />
+        <StatCard icon={<TrendingDown className="h-4 w-4" />} label="This Month" value={formatCurrency(
+          expenses.filter((e) => new Date(e.expense_date).getMonth() === new Date().getMonth()).reduce((s, e) => s + e.total_amount, 0)
+        )} accent="warning" />
+      </div>
+
+      {showForm && (
+        <Card className="mb-4">
+          <CardHeader className="pb-2"><CardTitle className="text-sm">New Expense</CardTitle></CardHeader>
+          <CardContent className="grid grid-cols-1 gap-2 pos-tablet:grid-cols-3 pos-desktop:grid-cols-6">
+            <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}
+              className="h-9 rounded-md border border-input bg-background px-3 text-sm">
+              <option value="">Category</option>
+              {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
-            <Input type="number" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Amount" />
+            <Input value={categoryName} onChange={(e) => setCategoryName(e.target.value)} placeholder="Or new category" />
+            <Input type="number" step="0.01" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Amount" />
             <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-            <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notes (optional)" />
-            <Button onClick={addExpense} disabled={submitting || !organization}>
-              {submitting ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Plus className="h-4 w-4 mr-1" />}
+            <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notes" />
+            <Button onClick={addExpense} disabled={submitting}>
+              {submitting ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Plus className="mr-1 h-4 w-4" />}
               Add
             </Button>
           </CardContent>
         </Card>
+      )}
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Wallet className="h-4 w-4" />
-              Logged Expenses ({formatCurrency(totalExpenses)})
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {loading ? <p className="text-sm text-muted-foreground">Loading...</p> : null}
-            {!loading && expenses.length === 0 ? <p className="text-sm text-muted-foreground">No expenses found.</p> : null}
-            {expenses.map((expense) => (
-              <div key={expense.id} className="border rounded-lg p-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium">{expense.category?.name || 'Uncategorized'}</p>
-                    <p className="text-xs text-muted-foreground">{expense.expense_date}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-semibold">{formatCurrency(expense.total_amount)}</p>
-                    <Badge variant={expense.status === 'paid' ? 'default' : 'secondary'}>{expense.status}</Badge>
-                  </div>
-                </div>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {expense.status === 'draft' && (
-                    <Button size="sm" variant="outline" disabled={updatingId === expense.id} onClick={() => setStatus(expense, 'submitted')}>Submit</Button>
-                  )}
-                  {expense.status === 'submitted' && (
-                    <Button size="sm" variant="outline" disabled={updatingId === expense.id} onClick={() => setStatus(expense, 'approved')}>Approve</Button>
-                  )}
-                  {expense.status === 'approved' && (
-                    <Button size="sm" disabled={updatingId === expense.id} onClick={() => setStatus(expense, 'paid')}>Mark Paid</Button>
-                  )}
-                  {expense.status !== 'paid' && expense.status !== 'void' && (
-                    <Button size="sm" variant="outline" disabled={updatingId === expense.id} onClick={() => setStatus(expense, 'void')}>Void</Button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+      <div className="mb-4 space-y-3">
+        <SearchBar value={search} onChange={setSearch} placeholder="Search vendor, category, or expense #" />
+        <FilterPills items={filterTabs} active={statusFilter} onChange={setStatusFilter} />
       </div>
+
+      <DataTable
+        columns={expenseColumns}
+        data={filtered}
+        loading={loading}
+        rowKey={(r) => r.id}
+        emptyTitle="No expenses found"
+        emptyDescription="Record an expense to get started."
+        emptyIcon={<Wallet className="h-10 w-10" />}
+      />
     </div>
   );
 }
