@@ -5,7 +5,7 @@ import type { BarcodeScanResult } from '@/types/cart';
 export const CatalogService = {
   async getCategories(orgId: string): Promise<Category[]> {
     const { data, error } = await supabase
-      .from('categories')
+      .from('pos_categories')
       .select('*')
       .eq('org_id', orgId)
       .eq('is_active', true)
@@ -128,7 +128,7 @@ export const CatalogService = {
 
   async createCategory(cat: Partial<Category>): Promise<Category> {
     const { data, error } = await supabase
-      .from('categories').insert(cat).select().single();
+      .from('pos_categories').insert(cat).select().single();
     if (error) throw error;
     return data as Category;
   },

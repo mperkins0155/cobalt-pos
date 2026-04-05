@@ -23,7 +23,7 @@ export const RefundService = {
   }): Promise<Refund> {
     // Get order with lines
     const { data: order, error: orderErr } = await supabase
-      .from('orders')
+      .from('pos_orders')
       .select('*, lines:order_lines(*), payments(*)')
       .eq('id', params.orderId)
       .single();
@@ -70,7 +70,7 @@ export const RefundService = {
     }
 
     // Update order
-    await supabase.from('orders').update({
+    await supabase.from('pos_orders').update({
       status: 'refunded',
       refunded_amount: round2(order.refunded_amount + refundAmount),
     }).eq('id', params.orderId);
@@ -116,7 +116,7 @@ export const RefundService = {
     }>;
   }): Promise<Refund> {
     const { data: order, error: orderErr } = await supabase
-      .from('orders')
+      .from('pos_orders')
       .select('*, payments(*)')
       .eq('id', params.orderId)
       .single();
@@ -165,7 +165,7 @@ export const RefundService = {
     await supabase.from('refund_lines').insert(refundLines);
 
     // Update order
-    await supabase.from('orders').update({
+    await supabase.from('pos_orders').update({
       status: isFullyRefunded ? 'refunded' : 'partially_refunded',
       refunded_amount: round2(order.refunded_amount + refundAmount),
     }).eq('id', params.orderId);

@@ -17,7 +17,7 @@ export const OrderService = {
 
     const orderId = uuid();
     const { data: order, error } = await supabase
-      .from('orders')
+      .from('pos_orders')
       .insert({
         id: orderId,
         org_id: orgId,
@@ -96,7 +96,7 @@ export const OrderService = {
   /** Load open tickets for location */
   async getOpenTickets(orgId: string, locationId?: string): Promise<Order[]> {
     let query = supabase
-      .from('orders')
+      .from('pos_orders')
       .select(`
         *,
         lines:order_lines(
@@ -118,7 +118,7 @@ export const OrderService = {
   /** Load a full order with lines and payments */
   async getOrderWithDetails(orderId: string): Promise<Order> {
     const { data, error } = await supabase
-      .from('orders')
+      .from('pos_orders')
       .select(`
         *,
         lines:order_lines(*, modifiers:order_line_modifiers(*)),
@@ -137,7 +137,7 @@ export const OrderService = {
   /** Update order status */
   async updateStatus(orderId: string, status: Order['status'], updates?: Partial<Order>): Promise<void> {
     const { error } = await supabase
-      .from('orders')
+      .from('pos_orders')
       .update({
         status,
         ...updates,
@@ -177,7 +177,7 @@ export const OrderService = {
     offset?: number;
   }): Promise<{ orders: Order[]; count: number }> {
     let query = supabase
-      .from('orders')
+      .from('pos_orders')
       .select('*, customer:customers(first_name, last_name), cashier:profiles!orders_cashier_id_fkey(first_name, last_name)', { count: 'exact' })
       .eq('org_id', params.orgId)
       .order('created_at', { ascending: false });

@@ -6,7 +6,7 @@ export const CustomerService = {
   async search(orgId: string, query: string, limit: number = 20): Promise<Customer[]> {
     const term = `%${query}%`;
     const { data, error } = await supabase
-      .from('customers')
+      .from('pos_customers')
       .select('*')
       .eq('org_id', orgId)
       .or(`first_name.ilike.${term},last_name.ilike.${term},email.ilike.${term},phone.ilike.${term}`)
@@ -19,7 +19,7 @@ export const CustomerService = {
 
   async getById(id: string): Promise<Customer> {
     const { data, error } = await supabase
-      .from('customers').select('*').eq('id', id).single();
+      .from('pos_customers').select('*').eq('id', id).single();
     if (error) throw error;
     return data as Customer;
   },
@@ -33,7 +33,7 @@ export const CustomerService = {
     notes?: string;
   }): Promise<Customer> {
     const { data, error } = await supabase
-      .from('customers')
+      .from('pos_customers')
       .insert({ id: uuid(), org_id: params.orgId, ...params })
       .select()
       .single();
@@ -43,14 +43,14 @@ export const CustomerService = {
 
   async update(id: string, updates: Partial<Customer>): Promise<Customer> {
     const { data, error } = await supabase
-      .from('customers').update(updates).eq('id', id).select().single();
+      .from('pos_customers').update(updates).eq('id', id).select().single();
     if (error) throw error;
     return data as Customer;
   },
 
   async getOrderHistory(customerId: string, limit: number = 50): Promise<any[]> {
     const { data, error } = await supabase
-      .from('orders')
+      .from('pos_orders')
       .select('id, order_number, status, total_amount, created_at')
       .eq('customer_id', customerId)
       .order('created_at', { ascending: false })
@@ -65,7 +65,7 @@ export const CustomerService = {
     sortBy?: string;
   }): Promise<{ customers: Customer[]; count: number }> {
     const { data, count, error } = await supabase
-      .from('customers')
+      .from('pos_customers')
       .select('*', { count: 'exact' })
       .eq('org_id', orgId)
       .order(params?.sortBy || 'created_at', { ascending: false })

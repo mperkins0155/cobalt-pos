@@ -162,7 +162,7 @@ export const ReportingService = {
     dateTo?: string,
   ): Promise<SalesSummary> {
     let query = supabase
-      .from('orders')
+      .from('pos_orders')
       .select('subtotal_amount, discount_amount, tax_amount, tip_amount, total_amount, refunded_amount, status')
       .eq('org_id', orgId)
       .in('status', ['paid', 'refunded', 'partially_refunded']);

@@ -23,9 +23,9 @@ export default function Onboarding() {
     try {
       const orgId = uuid();
       const slug = businessName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-      await supabase.from('organizations').insert({ id: orgId, name: businessName, slug });
+      await supabase.from('pos_organizations').insert({ id: orgId, name: businessName, slug });
       const locId = uuid();
-      await supabase.from('locations').insert({ id: locId, org_id: orgId, name: 'Main', is_default: true });
+      await supabase.from('pos_locations').insert({ id: locId, org_id: orgId, name: 'Main', is_default: true });
       await supabase.from('profiles').insert({ id: uuid(), user_id: user.id, org_id: orgId, role: 'owner', first_name: firstName, last_name: lastName, email: user.email });
       await supabase.from('tax_rates').insert({ id: uuid(), org_id: orgId, name: 'Default Tax', rate: 8.25, is_default: true, is_active: true });
       await supabase.from('tip_settings').insert({ id: uuid(), org_id: orgId, mode: 'suggested', suggested_percentages: [15,18,20,25] });

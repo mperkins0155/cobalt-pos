@@ -152,7 +152,7 @@ export const PaymentService = {
     }
 
     const { error } = await supabase
-      .from('orders')
+      .from('pos_orders')
       .update(updates)
       .eq('id', orderId);
 

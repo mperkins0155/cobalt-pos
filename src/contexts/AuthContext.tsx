@@ -53,8 +53,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const [orgRes, locRes, taxRes, tipRes] = await Promise.all([
-        supabase.from('organizations').select('*').eq('id', profile.org_id).single(),
-        supabase.from('locations').select('*').eq('org_id', profile.org_id).eq('is_active', true).order('is_default', { ascending: false }),
+        supabase.from('pos_organizations').select('*').eq('id', profile.org_id).single(),
+        supabase.from('pos_locations').select('*').eq('org_id', profile.org_id).eq('is_active', true).order('is_default', { ascending: false }),
         supabase.from('tax_rates').select('*').eq('org_id', profile.org_id).eq('is_active', true).eq('is_default', true).limit(1),
         supabase.from('tip_settings').select('*').eq('org_id', profile.org_id).limit(1),
       ]);
