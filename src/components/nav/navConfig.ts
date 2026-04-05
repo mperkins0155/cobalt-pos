@@ -40,7 +40,7 @@ export const NAV_ITEMS: NavItem[] = [
   { key: 'reservations', label: 'Reservations', path: '/reservations', icon: CalendarDays, desktopOnly: true },
   { key: 'customers', label: 'Customers', path: '/customers', icon: Users, desktopOnly: true },
   { key: 'inventory', label: 'Inventory', path: '/inventory', icon: Package, desktopOnly: true, minRole: 'manager' },
-  { key: 'history', label: 'History', path: '/orders', icon: Clock, desktopOnly: true },
+  { key: 'history', label: 'History', path: '/history', icon: Clock, desktopOnly: true },
 ];
 
 /** Utility nav — settings + logout, rendered separately in sidebar/topnav */
@@ -49,7 +49,6 @@ export const SETTINGS_ITEM: NavItem = {
   label: 'Settings',
   path: '/settings',
   icon: Settings,
-  minRole: 'manager',
 };
 
 export const LOGOUT_ITEM = {

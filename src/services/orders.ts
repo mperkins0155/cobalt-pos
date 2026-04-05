@@ -123,8 +123,8 @@ export const OrderService = {
         *,
         lines:order_lines(*, modifiers:order_line_modifiers(*)),
         payments(*),
-        customer:customers(*),
-        cashier:profiles!orders_cashier_id_fkey(*),
+        customer:pos_customers(*),
+        cashier:profiles!pos_orders_cashier_id_fkey(*),
         refunds(*, lines:refund_lines(*), reason_code:reason_codes(*))
       `)
       .eq('id', orderId)
@@ -178,7 +178,7 @@ export const OrderService = {
   }): Promise<{ orders: Order[]; count: number }> {
     let query = supabase
       .from('pos_orders')
-      .select('*, customer:customers(first_name, last_name), cashier:profiles!orders_cashier_id_fkey(first_name, last_name)', { count: 'exact' })
+      .select('*, customer:pos_customers(first_name, last_name), cashier:profiles!pos_orders_cashier_id_fkey(first_name, last_name)', { count: 'exact' })
       .eq('org_id', params.orgId)
       .order('created_at', { ascending: false });
 

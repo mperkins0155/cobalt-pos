@@ -15,7 +15,7 @@ export const ReservationService = {
   async getById(id: string): Promise<Reservation> {
     const { data, error } = await supabase
       .from('reservations')
-      .select('*, customer_name:guest_name, customer_phone:guest_phone, customer_email:guest_email, table:dining_tables(*), customer:customers(*)')
+      .select('*, customer_name:guest_name, customer_phone:guest_phone, customer_email:guest_email, table:dining_tables(*), customer:pos_customers(*)')
       .eq('id', id)
       .single();
     if (error) throw error;
@@ -108,7 +108,7 @@ export const ReservationService = {
   }): Promise<{ reservations: Reservation[]; count: number }> {
     let query = supabase
       .from('reservations')
-      .select('*, customer_name:guest_name, customer_phone:guest_phone, customer_email:guest_email, table:dining_tables(name, capacity, status), customer:customers(first_name, last_name, phone)', { count: 'exact' })
+      .select('*, customer_name:guest_name, customer_phone:guest_phone, customer_email:guest_email, table:dining_tables(name, capacity, status), customer:pos_customers(first_name, last_name, phone)', { count: 'exact' })
       .eq('org_id', params.orgId)
       .order('reserved_for', { ascending: true });
 

@@ -4,18 +4,12 @@
 // Last modified: V0.6.3.0 — see VERSION_LOG.md
 // ============================================================
 
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent } from '@/components/ui/card';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   Settings as SettingsIcon,
   Users,
-  DollarSign,
-  Percent,
-  MapPin,
-  Printer,
-  ReceiptText,
   FileText,
   Shield,
   CalendarDays,
@@ -24,32 +18,22 @@ import {
   ShoppingBag,
   Wallet,
   ChevronRight,
-  Github,
 } from 'lucide-react';
 
 const settingsItems = [
-  { icon: Github, label: 'Project Sources', description: 'GitHub-backed dashboard wiring', path: '/settings?section=project-sources' },
-  { icon: Users, label: 'Team', description: 'Invite staff, manage roles', path: '/staff' },
-  { icon: DollarSign, label: 'Taxes', description: 'Tax rates & configuration', path: '/settings/taxes' },
-  { icon: Percent, label: 'Tips', description: 'Tip settings & suggestions', path: '/settings/tips' },
-  { icon: MapPin, label: 'Locations', description: 'Manage locations', path: '/settings/locations' },
-  { icon: Printer, label: 'Hardware', description: 'Printers & scanners', path: '/settings/hardware' },
-  { icon: ReceiptText, label: 'Receipts', description: 'Receipt templates', path: '/settings/receipts' },
-  { icon: FileText, label: 'Reason Codes', description: 'Refund & void reasons', path: '/settings/reason-codes' },
-  { icon: Shield, label: 'Audit Log', description: 'Activity history', path: '/settings/audit' },
+  { icon: Users, label: 'Staff', description: 'Manage staff and roles', path: '/staff' },
   { icon: CalendarDays, label: 'Reservations', description: 'Manage guest bookings', path: '/reservations' },
   { icon: LayoutGrid, label: 'Table Floor', description: 'View and update table status', path: '/table-floor' },
   { icon: Truck, label: 'Suppliers', description: 'Supplier contacts and partners', path: '/suppliers' },
   { icon: ShoppingBag, label: 'Purchasing', description: 'Track purchase orders', path: '/purchasing' },
   { icon: FileText, label: 'Quotations', description: 'Create and review quotes', path: '/quotations' },
   { icon: Wallet, label: 'Expenses', description: 'Log and monitor expenses', path: '/expenses' },
+  { icon: Shield, label: 'Audit Log', description: 'Activity history (coming soon)', path: '/settings' },
 ];
 
 export default function Settings() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const { organization } = useAuth();
-  const showProjectSources = searchParams.get('section') === 'project-sources';
 
   return (
     <div className="flex-1 overflow-y-auto p-4 pos-tablet:p-5 pos-desktop:px-7 pos-desktop:py-6">
@@ -82,19 +66,6 @@ export default function Settings() {
         ))}
       </div>
 
-      {showProjectSources && (
-        <div className="max-w-3xl pb-20 pos-tablet:pb-4">
-          <Alert className="border-primary/20 bg-primary/5">
-            <Github className="h-4 w-4 text-primary" />
-            <AlertTitle>Project Sources</AlertTitle>
-            <AlertDescription className="space-y-1">
-              <p>The dashboard now reads live project entities from the GitHub repos mapped to this Playground workspace.</p>
-              <p>Current mapping is defined in `src/services/projects.ts` and uses public GitHub APIs by default.</p>
-              <p>Add `VITE_GITHUB_TOKEN` to the frontend environment if you need private-repo access or a higher GitHub API rate limit.</p>
-            </AlertDescription>
-          </Alert>
-        </div>
-      )}
     </div>
   );
 }

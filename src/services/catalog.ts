@@ -17,7 +17,7 @@ export const CatalogService = {
   async getItems(orgId: string, categoryId?: string): Promise<Item[]> {
     let query = supabase
       .from('items')
-      .select('*, category:categories(*), variants(*)')
+      .select('*, category:pos_categories(*), variants(*)')
       .eq('org_id', orgId)
       .eq('is_active', true)
       .order('sort_order');
@@ -32,7 +32,7 @@ export const CatalogService = {
   async getItemWithModifiers(itemId: string): Promise<Item & { modifier_groups: ModifierGroupWithOptions[] }> {
     const { data: item, error } = await supabase
       .from('items')
-      .select('*, category:categories(*), variants(*)')
+      .select('*, category:pos_categories(*), variants(*)')
       .eq('id', itemId)
       .single();
 
