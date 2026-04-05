@@ -1,30 +1,16 @@
 # CloudPos Implementation Progress Log
-# Last updated: April 4, 2026 — Phase 11 complete (Production Hardening)
+# Last updated: April 4, 2026 — V0.8.0.0 committed, ready for deploy
 
 ## CURRENT VERSION: V0.8.0.0-Production
 ## CURRENT STATE
-- ALL 8 PROTOTYPE BUILD PHASES COMPLETE
-- 6 AUDITS COMPLETE — 26 bugs found/fixed, 37 verification checks passing
-- SUPABASE SCHEMA DEPLOYED — 10 tables, RLS, indexes, seed data verified
-- Build Protocol v3 FINALIZED — 24 audit techniques
-- Final prototype artifact: 2537 lines, 36 functions, delimiters balanced
-- 5-CODEBASE COMPETITIVE ANALYSIS COMPLETE — patterns identified for adoption
-- 12-PHASE INTEGRATION ROADMAP COMPLETE — 20 sessions estimated to V1
-- GAP ANALYSIS COMPLETE — V1 needs ~5,200 new lines across ~56 files
-- VERSIONING SYSTEM ACTIVE — VERSION_LOG.md with entries
-- **PHASE 0 COMPLETE** — Foundation merge (theme + components + nav + all pages)
-- **PHASE 1 COMPLETE** — Keyboard shortcuts + Command palette
-- **PHASE 2 COMPLETE** — Kitchen Intelligence (Codex: soundService, useKitchenOrders, SoundSettings, KDS rewrite)
-- **PHASE 3 COMPLETE** — DataTable + column defs + DateRangePicker + charts
-- **PHASE 4 COMPLETE** — Modifier groups (Codex: ModifierModal)
-- **PHASE 5 COMPLETE** — Receipt + receiptFormatter (Codex)
-- **PHASE 6 PARTIAL** — Banker's rounding + calcSum/mergeAndSum/average done; multi-tax UI not wired
-- **PHASE 7 COMPLETE** — Role-based routes, default page per role, table routes accessible to cashiers
-- **PHASE 8 COMPLETE** — Toast error notifications on all data-loading pages
-- **PHASE 9 COMPLETE** — Reservations flow (page + modal + nav + TableFloor badges)
-- **PHASE 11 COMPLETE** — Error boundaries, audit trail, RLS migration, FK indexes
-- Blocking Issues: none
-- NEXT: **Phase 12 — Vercel deploy + final 24-technique audit + launch checklist**
+- Phases 0–9, 11 COMPLETE — all V1 code done, committed to main
+- Phase 12 IN PROGRESS — commit done, push + Vercel deploy pending
+- 7 AUDITS COMPLETE — 27 bugs found/fixed (T13 AuthCallback setTimeout added this session)
+- **IMPORTANT: The Supabase project `dbreddlkzpymsqmkkjub` is the CMC prototype project**
+  — cobalt-pos schema was never deployed to its own Supabase project
+  — cobalt-pos needs a NEW Supabase project before going live
+- Blocking Issues: none (code complete) | DB migration needs fresh Supabase project
+- NEXT: Push to GitHub → Create new Supabase project → Apply migrations → Vercel deploy
 
 ## REPO
 - **URL:** github.com/mperkins0155/cobalt-pos (renamed from cobalt-pos-2026-03-04)
@@ -210,6 +196,10 @@ Codex pushed Phases 1-6 via branch `codex/readme-status-updates`. Merged into ma
 - **April 4: Codex merge cleanup (V0.7.0.1) — 11 issues fixed, 7 files deleted, Dashboard restored**
 - **April 4: Phase 3 completion (V0.7.1.0) — 6 column defs, DateRangePicker, DataTable wired into 3 pages**
 - **April 4: Phase 7 + 8 (V0.7.2.0) — Role-based routes + toast error notifications on all pages**
+- **April 4: Phase 9 (V0.7.3.0) — Reservations: NewReservationModal, full page rewrite, TableFloor badges**
+- **April 4: Phase 11 (V0.8.0.0) — ErrorBoundary, useAuditLog, Checkout/Reservations audit events**
+- **April 4: Phase 12 audit — 24-technique pass, AuthCallback T13 fix, build verified, committed to main**
+- **April 4: DISCOVERY — dbreddlkzpymsqmkkjub is the CMC project. cobalt-pos needs its own Supabase project.**
 
 ## NEXT STEPS (Priority Order)
 1. ✅ Phase 0: Foundation merge — DONE
