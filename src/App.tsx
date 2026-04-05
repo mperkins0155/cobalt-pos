@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { Toaster } from '@/components/ui/sonner';
 import { AppShell } from '@/components/nav';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 // Lazy-load pages
 import { lazy, Suspense } from 'react';
@@ -83,63 +84,65 @@ function RoleRedirect() {
 
 function AppRoutes() {
   return (
-    <Suspense fallback={<LoadingFallback />}>
-      <Routes>
-        {/* Public — no nav shell */}
-        <Route path="/login" element={<Login />} />
-        <Route path="/auth/callback" element={<AuthCallback />} />
+    <ErrorBoundary section="Application">
+      <Suspense fallback={<LoadingFallback />}>
+        <Routes>
+          {/* Public — no nav shell */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/auth/callback" element={<AuthCallback />} />
 
-        {/* Protected */}
-        <Route element={<ProtectedRoute />}>
-          {/* Onboarding — no nav shell (first-time setup) */}
-          <Route path="/onboarding" element={<Onboarding />} />
+          {/* Protected */}
+          <Route element={<ProtectedRoute />}>
+            {/* Onboarding — no nav shell (first-time setup) */}
+            <Route path="/onboarding" element={<Onboarding />} />
 
-          {/* All app pages — wrapped in responsive AppShell (Sidebar/TopNav/BottomNav) */}
-          <Route element={<AppShell />}>
-            {/* Dashboard — landing page */}
-            <Route path="/dashboard" element={<Dashboard />} />
+            {/* All app pages — wrapped in responsive AppShell (Sidebar/TopNav/BottomNav) */}
+            <Route element={<AppShell />}>
+              {/* Dashboard — landing page */}
+              <Route path="/dashboard" element={<ErrorBoundary section="Dashboard"><Dashboard /></ErrorBoundary>} />
 
-            {/* POS */}
-            <Route path="/pos" element={<POS />} />
-            <Route path="/pos/checkout" element={<Checkout />} />
-            <Route path="/pos/receipt/:orderId" element={<Receipt />} />
-            <Route path="/pos/tickets" element={<Tickets />} />
+              {/* POS */}
+              <Route path="/pos" element={<ErrorBoundary section="POS"><POS /></ErrorBoundary>} />
+              <Route path="/pos/checkout" element={<ErrorBoundary section="Checkout"><Checkout /></ErrorBoundary>} />
+              <Route path="/pos/receipt/:orderId" element={<ErrorBoundary section="Receipt"><Receipt /></ErrorBoundary>} />
+              <Route path="/pos/tickets" element={<ErrorBoundary section="Kitchen Display"><Tickets /></ErrorBoundary>} />
 
-            {/* Orders */}
-            <Route path="/orders" element={<Orders />} />
-            <Route path="/orders/:orderId" element={<OrderDetail />} />
-            <Route path="/history" element={<History />} />
+              {/* Orders */}
+              <Route path="/orders" element={<ErrorBoundary section="Orders"><Orders /></ErrorBoundary>} />
+              <Route path="/orders/:orderId" element={<ErrorBoundary section="Order Detail"><OrderDetail /></ErrorBoundary>} />
+              <Route path="/history" element={<ErrorBoundary section="History"><History /></ErrorBoundary>} />
 
-            {/* Customers */}
-            <Route path="/customers" element={<Customers />} />
-            <Route path="/customers/:customerId" element={<CustomerDetail />} />
+              {/* Customers */}
+              <Route path="/customers" element={<ErrorBoundary section="Customers"><Customers /></ErrorBoundary>} />
+              <Route path="/customers/:customerId" element={<ErrorBoundary section="Customer Detail"><CustomerDetail /></ErrorBoundary>} />
 
-            {/* Tables & floor — all roles (cashiers need for dine-in) */}
-            <Route path="/table-floor" element={<TableFloor />} />
-            <Route path="/reservations" element={<Reservations />} />
+              {/* Tables & floor — all roles (cashiers need for dine-in) */}
+              <Route path="/table-floor" element={<ErrorBoundary section="Table Floor"><TableFloor /></ErrorBoundary>} />
+              <Route path="/reservations" element={<ErrorBoundary section="Reservations"><Reservations /></ErrorBoundary>} />
 
-            {/* Manager+ routes */}
-            <Route element={<ManagerRoute />}>
-              <Route path="/staff" element={<Staff />} />
-              <Route path="/catalog" element={<Catalog />} />
-              <Route path="/inventory" element={<Inventory />} />
-              <Route path="/suppliers" element={<Suppliers />} />
-              <Route path="/purchasing" element={<Purchasing />} />
-              <Route path="/quotations" element={<Quotations />} />
-              <Route path="/expenses" element={<Expenses />} />
-              <Route path="/reports" element={<Reports />} />
-              <Route path="/reports/closeout" element={<Closeout />} />
-              <Route path="/settings" element={<Settings />} />
+              {/* Manager+ routes */}
+              <Route element={<ManagerRoute />}>
+                <Route path="/staff" element={<ErrorBoundary section="Staff"><Staff /></ErrorBoundary>} />
+                <Route path="/catalog" element={<ErrorBoundary section="Catalog"><Catalog /></ErrorBoundary>} />
+                <Route path="/inventory" element={<ErrorBoundary section="Inventory"><Inventory /></ErrorBoundary>} />
+                <Route path="/suppliers" element={<ErrorBoundary section="Suppliers"><Suppliers /></ErrorBoundary>} />
+                <Route path="/purchasing" element={<ErrorBoundary section="Purchasing"><Purchasing /></ErrorBoundary>} />
+                <Route path="/quotations" element={<ErrorBoundary section="Quotations"><Quotations /></ErrorBoundary>} />
+                <Route path="/expenses" element={<ErrorBoundary section="Expenses"><Expenses /></ErrorBoundary>} />
+                <Route path="/reports" element={<ErrorBoundary section="Reports"><Reports /></ErrorBoundary>} />
+                <Route path="/reports/closeout" element={<ErrorBoundary section="Closeout"><Closeout /></ErrorBoundary>} />
+                <Route path="/settings" element={<ErrorBoundary section="Settings"><Settings /></ErrorBoundary>} />
+              </Route>
+
+              {/* Default — role-aware redirect */}
+              <Route path="/" element={<RoleRedirect />} />
             </Route>
-
-            {/* Default — role-aware redirect */}
-            <Route path="/" element={<RoleRedirect />} />
           </Route>
-        </Route>
 
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </Suspense>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
+    </ErrorBoundary>
   );
 }
 

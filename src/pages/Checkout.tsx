@@ -9,6 +9,7 @@ import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/hooks/useCart';
+import { useAuditLog } from '@/hooks/useAuditLog';
 import { OrderService } from '@/services/orders';
 import { PaymentService } from '@/services/payments';
 import { formatCurrency, calcChangeDue, calcTipFromPercent, round2 } from '@/lib/calculations';
@@ -34,6 +35,7 @@ export default function Checkout() {
   const navigate = useNavigate();
   const { organization, profile, currentLocation, tipSettings } = useAuth();
   const cart = useCart({ defaultTaxRate: 0 });
+  const { log } = useAuditLog();
 
   const [step, setStep] = useState<CheckoutStep>(
     tipSettings?.mode !== 'off' ? 'tip' : 'payment'
@@ -98,6 +100,18 @@ export default function Checkout() {
         cart.totals.total
       );
 
+      void log({
+        actionType: 'order.paid',
+        entityType: 'order',
+        entityId: order.id,
+        metadata: {
+          order_number: order.order_number,
+          total: cart.totals.total,
+          tip: cart.tipAmount,
+          payment_method: paymentMethod,
+        },
+      });
+
       cart.clearCart();
       navigate(`/pos/receipt/${order.id}`, { replace: true });
     } catch (err: any) {
@@ -114,15 +128,22 @@ export default function Checkout() {
     otherProvider,
     otherReference,
     navigate,
+    log,
   ]);
 
   const handleSaveAsTicket = async () => {
     if (!organization || !profile) return;
 
     try {
-      await OrderService.saveAsTicket(
+      const ticket = await OrderService.saveAsTicket(
         organization.id, currentLocation?.id, profile.id, cart.getCartState()
       );
+      void log({
+        actionType: 'order.saved_as_ticket',
+        entityType: 'order',
+        entityId: ticket.id,
+        metadata: { order_number: ticket.order_number, items: cart.items.length },
+      });
       cart.clearCart();
       navigate('/pos', { replace: true });
     } catch (err: any) {

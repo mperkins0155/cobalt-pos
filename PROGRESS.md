@@ -1,7 +1,7 @@
 # CloudPos Implementation Progress Log
-# Last updated: April 4, 2026 — Phase 3 complete + Phase 7 + Phase 8
+# Last updated: April 4, 2026 — Phase 11 complete (Production Hardening)
 
-## CURRENT VERSION: V0.7.2.0-Production
+## CURRENT VERSION: V0.8.0.0-Production
 ## CURRENT STATE
 - ALL 8 PROTOTYPE BUILD PHASES COMPLETE
 - 6 AUDITS COMPLETE — 26 bugs found/fixed, 37 verification checks passing
@@ -21,8 +21,10 @@
 - **PHASE 6 PARTIAL** — Banker's rounding + calcSum/mergeAndSum/average done; multi-tax UI not wired
 - **PHASE 7 COMPLETE** — Role-based routes, default page per role, table routes accessible to cashiers
 - **PHASE 8 COMPLETE** — Toast error notifications on all data-loading pages
+- **PHASE 9 COMPLETE** — Reservations flow (page + modal + nav + TableFloor badges)
+- **PHASE 11 COMPLETE** — Error boundaries, audit trail, RLS migration, FK indexes
 - Blocking Issues: none
-- NEXT: **Phase 9 — Reservations flow**, then **Phase 11 — Production hardening**
+- NEXT: **Phase 12 — Vercel deploy + final 24-technique audit + launch checklist**
 
 ## REPO
 - **URL:** github.com/mperkins0155/cobalt-pos (renamed from cobalt-pos-2026-03-04)
@@ -116,6 +118,36 @@ Codex pushed Phases 1-6 via branch `codex/readme-status-updates`. Merged into ma
 - ✅ 8 new tests (banker's rounding edge cases, utility functions)
 - ❌ Multi-tax UI not wired (per-item tax rates on receipt/reports)
 
+## PHASE 11 — Production Hardening ✅ (V0.8.0.0)
+
+### 11A. Error Boundaries ✅
+- ErrorBoundary.tsx (110 lines) — class component, full-page + inline modes, "Try again" resets state, "Go to Dashboard" hard-nav escape
+- App.tsx — outer ErrorBoundary wraps all routes; per-route boundaries on all 20 pages (Dashboard, POS, Kitchen, Orders, Reservations, etc.). A crash in any one section leaves the rest functional.
+
+### 11B. Audit Trail ✅
+- useAuditLog.ts (42 lines) — reads orgId/userId from AuthContext, calls AuditService.log(), swallows failures silently
+- Checkout.tsx — `order.paid` logged after finalizeOrderPayments; `order.saved_as_ticket` logged after saveAsTicket
+- Reservations.tsx — `reservation.created` logged in handleCreated; `reservation.status_changed` logged in updateStatus with from/to status + guest metadata
+
+### 11C. RLS Policies ✅ (SQL migration written — apply manually)
+- supabase/migrations/006_production_hardening.sql
+- Adds UPDATE + DELETE policies for all 14 core tables (locations, categories, items, orders, payments, customers, etc.)
+- Adds role-restricted policies: discounts/refunds DELETE → manager+; org UPDATE → manager+; profiles UPDATE → own or manager
+- Adds order_lines and refund_lines RLS (missing from 001 — no org_id column, policies go through parent table)
+- Variants + modifier_options UPDATE/DELETE through parent org
+- All DROP IF EXISTS guards → idempotent (safe to re-run)
+- **⚠️ MUST APPLY BEFORE PRODUCTION**: Supabase MCP hibernated; paste into https://supabase.com/dashboard/project/dbreddlkzpymsqmkkjub/sql/new
+
+### 11D. FK Indexes ✅ (SQL migration written — apply with 11C)
+- 24 new indexes on FK columns: order_lines.item_id/variant_id, order_line_modifiers, payments.org_id/tender_type, refunds.org_id/reason_code_id, refund_lines.order_line_id, inventory_events.created_by, cash_events.shift_id/created_by, cash_shifts.opened_by/location, audit_logs.actor_user_id, org_invitations, user_location_assignments, reservations.created_by/customer_id, expenses.created_by/approved_by
+- All use CREATE INDEX IF NOT EXISTS → idempotent
+
+## PHASE 9 — Reservations ✅ (V0.7.3.0)
+- NewReservationModal.tsx (269 lines) — shadcn Dialog: guest name, phone, email, party size stepper, datetime-local, table selector (available only), duration, special requests
+- Reservations.tsx rewritten (400 lines) — FilterPills (Upcoming/Today/All/Done with live counts), styled ReservationCard, past-due time highlighting, full status machine (pending→confirmed→seated→completed/no_show/cancelled), Skeleton + EmptyState, auto-switches to Upcoming filter after create
+- navConfig.ts — Reservations nav item added (CalendarDays icon, desktopOnly)
+- TableFloor.tsx enhanced — fetches upcoming reservations in parallel; reserved tables show time badge (e.g. "7:00 PM") in primary color
+
 ## PHASE 7 — Role-Based Experience ✅ (V0.7.2.0)
 - defaultRouteForRole() — cashier→/pos, manager/owner→/dashboard
 - RoleRedirect component for / and catch-all routes
@@ -148,8 +180,8 @@ Codex pushed Phases 1-6 via branch `codex/readme-status-updates`. Merged into ma
 - ✅ Role-based layouts + route protection
 - ✅ Error toast notifications on all pages
 - ❌ Multi-tax UI wiring (Phase 6 partial)
-- ❌ Reservations flow (Phase 9)
-- ❌ RLS tightening + FK indexes + error boundaries + audit trail (Phase 11)
+- ✅ Reservations flow (Phase 9)
+- ✅ RLS tightening + FK indexes + error boundaries + audit trail (Phase 11)
 - ❌ Vercel deploy + launch checklist (Phase 12)
 
 ### V2 — After Launch
@@ -189,9 +221,9 @@ Codex pushed Phases 1-6 via branch `codex/readme-status-updates`. Merged into ma
 7. 🟡 Phase 6: Financial hardening — banker's rounding done, multi-tax UI pending
 8. ✅ Phase 7: Role-based experience — DONE
 9. ✅ Phase 8: Loading/empty/error states — DONE
-10. **Phase 9: Reservations** ← NEXT
-11. **Phase 11: Production hardening (RLS, FK indexes, error boundaries, audit trail)**
-12. **Phase 12: Deploy to Vercel + launch checklist**
+10. ✅ Phase 9: Reservations — DONE
+11. ✅ Phase 11: Production hardening — DONE
+12. **Phase 12: Deploy to Vercel + launch checklist** ← NEXT
 
 ## DECISIONS LOG
 - Reused CutMerchantCosts Supabase project (free tier 2-project limit)

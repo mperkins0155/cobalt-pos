@@ -1,34 +1,101 @@
+// ============================================================
+// CloudPos — Reservations Page
+// Phase 9: Full reservation management with filter pills + modal
+// Last modified: V0.7.3.0 — see VERSION_LOG.md
+// ============================================================
+
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, CalendarDays, Plus, Loader2 } from 'lucide-react';
+import {
+  CalendarDays,
+  Clock,
+  Plus,
+  Users,
+  CheckCircle2,
+  XCircle,
+  Loader2,
+  UtensilsCrossed,
+  StickyNote,
+} from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAuditLog } from '@/hooks/useAuditLog';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import { FilterPills, EmptyState } from '@/components/pos';
+import { NewReservationModal } from '@/components/reservations/NewReservationModal';
 import { ReservationService } from '@/services/reservations';
 import { TableService } from '@/services/tables';
 import { toast } from '@/components/ui/sonner';
 import type { DiningTable, Reservation, ReservationStatus } from '@/types/database';
 
-export default function Reservations() {
-  const navigate = useNavigate();
-  const { organization, currentLocation } = useAuth();
+// ── helpers ──────────────────────────────────────────────────
 
-  const [guestName, setGuestName] = useState('');
-  const [partySize, setPartySize] = useState(2);
-  const [dateTime, setDateTime] = useState(new Date(Date.now() + 30 * 60 * 1000).toISOString().slice(0, 16));
-  const [selectedTableId, setSelectedTableId] = useState('');
-  const [phone, setPhone] = useState('');
+function formatReservationTime(iso: string): string {
+  const d = new Date(iso);
+  const today = new Date();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(today.getDate() + 1);
+
+  const sameDay = (a: Date, b: Date) =>
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate();
+
+  const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  if (sameDay(d, today)) return `Today, ${timeStr}`;
+  if (sameDay(d, tomorrow)) return `Tomorrow, ${timeStr}`;
+  return (
+    d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' }) +
+    `, ${timeStr}`
+  );
+}
+
+function isToday(iso: string): boolean {
+  const d = new Date(iso);
+  const now = new Date();
+  return (
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+  );
+}
+
+function isUpcoming(r: Reservation): boolean {
+  return (
+    (r.status === 'pending' || r.status === 'confirmed') &&
+    new Date(r.reserved_for) >= new Date()
+  );
+}
+
+const STATUS_STYLE: Record<
+  ReservationStatus,
+  { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive'; dot: string }
+> = {
+  pending:   { label: 'Pending',   variant: 'secondary',   dot: 'bg-warning' },
+  confirmed: { label: 'Confirmed', variant: 'default',     dot: 'bg-primary' },
+  seated:    { label: 'Seated',    variant: 'default',     dot: 'bg-success' },
+  completed: { label: 'Completed', variant: 'outline',     dot: 'bg-muted-foreground' },
+  cancelled: { label: 'Cancelled', variant: 'destructive', dot: 'bg-destructive' },
+  no_show:   { label: 'No Show',   variant: 'destructive', dot: 'bg-destructive' },
+};
+
+type FilterKey = 'upcoming' | 'today' | 'all' | 'done';
+
+// ── Reservations page ─────────────────────────────────────────
+
+export default function Reservations() {
+  const { organization, currentLocation } = useAuth();
+  const { log } = useAuditLog();
 
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [tables, setTables] = useState<DiningTable[]>([]);
   const [loading, setLoading] = useState(true);
-  const [creating, setCreating] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [filter, setFilter] = useState<FilterKey>('upcoming');
 
   const tableNameById = useMemo(
-    () => new Map(tables.map(table => [table.id, table.name])),
+    () => new Map(tables.map((t) => [t.id, t.name])),
     [tables]
   );
 
@@ -36,7 +103,7 @@ export default function Reservations() {
     if (!organization) return;
     setLoading(true);
     try {
-      const [reservationsResult, tablesResult] = await Promise.all([
+      const [resResult, tablesResult] = await Promise.all([
         ReservationService.list({
           orgId: organization.id,
           locationId: currentLocation?.id,
@@ -48,10 +115,10 @@ export default function Reservations() {
           includeInactive: false,
         }),
       ]);
-      setReservations(reservationsResult.reservations);
+      setReservations(resResult.reservations);
       setTables(tablesResult);
-    } catch (error) {
-      console.error(error);
+    } catch (err) {
+      console.error(err);
       toast.error('Failed to load reservations');
     } finally {
       setLoading(false);
@@ -62,166 +129,298 @@ export default function Reservations() {
     void loadData();
   }, [organization?.id, currentLocation?.id]);
 
-  const addReservation = async () => {
-    if (!organization) return;
-    if (!guestName.trim() || !dateTime) return;
-
-    setCreating(true);
-    try {
-      const created = await ReservationService.create({
-        orgId: organization.id,
-        locationId: currentLocation?.id,
-        tableId: selectedTableId || undefined,
-        customerName: guestName.trim(),
-        customerPhone: phone.trim() || undefined,
-        partySize,
-        reservedFor: new Date(dateTime).toISOString(),
-        status: 'pending',
-      });
-      setReservations(prev => [created, ...prev]);
-      if (created.table_id) {
-        await TableService.setTableStatus(created.table_id, 'reserved');
-      }
-      toast.success('Reservation created');
-    } catch (error) {
-      console.error(error);
-      toast.error('Failed to create reservation');
-    } finally {
-      setCreating(false);
+  // ── filter logic ──
+  const filtered = useMemo(() => {
+    switch (filter) {
+      case 'upcoming': return reservations.filter(isUpcoming);
+      case 'today':    return reservations.filter((r) => isToday(r.reserved_for));
+      case 'done':     return reservations.filter(
+        (r) => r.status === 'completed' || r.status === 'cancelled' || r.status === 'no_show'
+      );
+      default:         return reservations;
     }
+  }, [reservations, filter]);
 
-    setGuestName('');
-    setPhone('');
-    setSelectedTableId('');
-    setPartySize(2);
-    setDateTime(new Date(Date.now() + 30 * 60 * 1000).toISOString().slice(0, 16));
-  };
+  const filterTabs = useMemo(() => [
+    { key: 'upcoming', label: 'Upcoming', count: reservations.filter(isUpcoming).length },
+    { key: 'today',    label: 'Today',    count: reservations.filter((r) => isToday(r.reserved_for)).length },
+    { key: 'all',      label: 'All',      count: reservations.length },
+    {
+      key: 'done',
+      label: 'Done',
+      count: reservations.filter(
+        (r) => r.status === 'completed' || r.status === 'cancelled' || r.status === 'no_show'
+      ).length,
+    },
+  ], [reservations]);
 
+  // ── status transitions ──
   const updateStatus = async (reservation: Reservation, status: ReservationStatus) => {
     setUpdatingId(reservation.id);
     try {
       const updated = await ReservationService.setStatus(reservation.id, status);
-      setReservations(prev => prev.map(row => (row.id === reservation.id ? updated : row)));
+      setReservations((prev) => prev.map((r) => (r.id === reservation.id ? updated : r)));
 
       if (reservation.table_id) {
-        if (status === 'seated') await TableService.setTableStatus(reservation.table_id, 'occupied');
-        if (status === 'completed' || status === 'cancelled' || status === 'no_show') {
+        if (status === 'seated') {
+          await TableService.setTableStatus(reservation.table_id, 'occupied');
+        } else if (status === 'completed' || status === 'cancelled' || status === 'no_show') {
           await TableService.setTableStatus(reservation.table_id, 'available');
         }
       }
-      toast.success(`Reservation marked ${status}`);
-    } catch (error) {
-      console.error(error);
+
+      void log({
+        actionType: 'reservation.status_changed',
+        entityType: 'reservation',
+        entityId: reservation.id,
+        metadata: {
+          reservation_number: reservation.reservation_number,
+          from_status: reservation.status,
+          to_status: status,
+          guest_name: reservation.customer_name,
+        },
+      });
+
+      toast.success(`Marked as ${STATUS_STYLE[status].label}`);
+    } catch (err) {
+      console.error(err);
       toast.error('Failed to update reservation');
     } finally {
       setUpdatingId(null);
     }
   };
 
-  const statusTone = (status: ReservationStatus) => {
-    if (status === 'seated' || status === 'completed') return 'default';
-    if (status === 'cancelled' || status === 'no_show') return 'destructive';
-    return 'secondary';
+  const handleCreated = (reservation: Reservation) => {
+    setReservations((prev) => [reservation, ...prev]);
+    setFilter('upcoming');
+    void log({
+      actionType: 'reservation.created',
+      entityType: 'reservation',
+      entityId: reservation.id,
+      metadata: {
+        reservation_number: reservation.reservation_number,
+        guest_name: reservation.customer_name,
+        party_size: reservation.party_size,
+        reserved_for: reservation.reserved_for,
+        table_id: reservation.table_id,
+      },
+    });
   };
 
+  // ── render ────────────────────────────────────────────────
+
   return (
-    <div className="min-h-screen bg-background">
-      <header className="bg-primary text-primary-foreground px-4 py-3 flex items-center gap-3">
-        <Button variant="ghost" size="icon" className="text-primary-foreground" onClick={() => navigate('/settings')}>
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <h1 className="text-lg font-bold">Reservations</h1>
-        <div className="ml-auto">
-          <Button variant="ghost" size="sm" className="text-primary-foreground text-xs" onClick={() => navigate('/table-floor')}>
-            Table Floor
-          </Button>
+    <div className="flex-1 overflow-y-auto p-4 pos-tablet:p-5 pos-desktop:px-7 pos-desktop:py-6">
+      {/* Page header */}
+      <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center gap-2">
+          <CalendarDays className="h-5 w-5 text-primary" />
+          <h2 className="text-lg font-bold text-foreground">Reservations</h2>
         </div>
-      </header>
-
-      <div className="p-4 max-w-3xl mx-auto space-y-3">
-        {!currentLocation && (
-          <Card>
-            <CardContent className="pt-4">
-              <p className="text-sm text-muted-foreground">No location selected. Reservation actions need a location context.</p>
-            </CardContent>
-          </Card>
-        )}
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">New Reservation</CardTitle>
-          </CardHeader>
-          <CardContent className="grid grid-cols-1 md:grid-cols-6 gap-2">
-            <Input value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder="Guest name" />
-            <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone (optional)" />
-            <Input type="number" min={1} value={partySize} onChange={(e) => setPartySize(Number(e.target.value) || 1)} placeholder="Party size" />
-            <Input type="datetime-local" value={dateTime} onChange={(e) => setDateTime(e.target.value)} />
-            <select
-              value={selectedTableId}
-              onChange={(e) => setSelectedTableId(e.target.value)}
-              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-            >
-              <option value="">No table</option>
-              {tables.map((table) => (
-                <option key={table.id} value={table.id}>
-                  {table.name} ({table.status})
-                </option>
-              ))}
-            </select>
-            <Button onClick={addReservation} disabled={creating || !organization}>
-              {creating ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Plus className="h-4 w-4 mr-1" />}
-              Add
-            </Button>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <CalendarDays className="h-4 w-4" />
-              Upcoming
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {loading ? (
-              <div className="text-sm text-muted-foreground">Loading...</div>
-            ) : reservations.length === 0 ? (
-              <div className="text-sm text-muted-foreground">No reservations found.</div>
-            ) : reservations.map((reservation) => (
-              <div key={reservation.id} className="border rounded-lg p-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-medium">{reservation.customer_name || 'Guest'}</p>
-                    <p className="text-xs text-muted-foreground">
-                      Party of {reservation.party_size} • {new Date(reservation.reserved_for).toLocaleString()}
-                      {reservation.table_id ? ` • Table ${tableNameById.get(reservation.table_id) || reservation.table_id}` : ''}
-                    </p>
-                  </div>
-                  <Badge variant={statusTone(reservation.status)}>{reservation.status}</Badge>
-                </div>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {reservation.status === 'pending' && (
-                    <>
-                      <Button size="sm" variant="outline" disabled={updatingId === reservation.id} onClick={() => updateStatus(reservation, 'confirmed')}>Confirm</Button>
-                      <Button size="sm" disabled={updatingId === reservation.id} onClick={() => updateStatus(reservation, 'seated')}>Seat</Button>
-                      <Button size="sm" variant="outline" disabled={updatingId === reservation.id} onClick={() => updateStatus(reservation, 'cancelled')}>Cancel</Button>
-                    </>
-                  )}
-                  {reservation.status === 'confirmed' && (
-                    <>
-                      <Button size="sm" disabled={updatingId === reservation.id} onClick={() => updateStatus(reservation, 'seated')}>Seat</Button>
-                      <Button size="sm" variant="outline" disabled={updatingId === reservation.id} onClick={() => updateStatus(reservation, 'no_show')}>No Show</Button>
-                    </>
-                  )}
-                  {reservation.status === 'seated' && (
-                    <Button size="sm" disabled={updatingId === reservation.id} onClick={() => updateStatus(reservation, 'completed')}>Complete</Button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+        <Button size="sm" onClick={() => setModalOpen(true)} className="gap-1.5">
+          <Plus className="h-4 w-4" />
+          New reservation
+        </Button>
       </div>
+
+      {/* Filter pills */}
+      <FilterPills
+        items={filterTabs}
+        active={filter}
+        onChange={(key) => setFilter(key as FilterKey)}
+        className="mb-5"
+      />
+
+      {/* Content */}
+      {loading ? (
+        <div className="space-y-3">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-28 rounded-xl" />
+          ))}
+        </div>
+      ) : filtered.length === 0 ? (
+        <EmptyState
+          icon={<CalendarDays className="h-10 w-10" />}
+          title="No reservations"
+          description={
+            filter === 'upcoming'
+              ? 'No upcoming reservations. Hit "New reservation" to add one.'
+              : filter === 'today'
+              ? 'No reservations scheduled for today.'
+              : 'No reservations found.'
+          }
+        />
+      ) : (
+        <div className="space-y-3 pb-20 pos-tablet:pb-4">
+          {filtered.map((r) => (
+            <ReservationCard
+              key={r.id}
+              reservation={r}
+              tableName={r.table_id ? tableNameById.get(r.table_id) : undefined}
+              isUpdating={updatingId === r.id}
+              onUpdateStatus={updateStatus}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Create modal */}
+      <NewReservationModal
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+        orgId={organization?.id ?? ''}
+        locationId={currentLocation?.id}
+        tables={tables}
+        onCreated={handleCreated}
+      />
+    </div>
+  );
+}
+
+// ── ReservationCard ────────────────────────────────────────
+
+interface CardProps {
+  reservation: Reservation;
+  tableName?: string;
+  isUpdating: boolean;
+  onUpdateStatus: (reservation: Reservation, status: ReservationStatus) => void;
+}
+
+function ReservationCard({ reservation: r, tableName, isUpdating, onUpdateStatus }: CardProps) {
+  const style = STATUS_STYLE[r.status] ?? STATUS_STYLE.pending;
+  const isPastDue =
+    new Date(r.reserved_for) < new Date() && r.status === 'pending';
+
+  return (
+    <div
+      className={`
+        relative rounded-xl border bg-card p-4 transition-shadow hover:shadow-pos
+        ${r.status === 'seated' ? 'border-success/40 bg-success/5' : 'border-border'}
+        ${r.status === 'cancelled' || r.status === 'no_show' ? 'opacity-60' : ''}
+      `}
+    >
+      {/* Top row: name + status badge */}
+      <div className="flex items-start justify-between gap-3 mb-2">
+        <div className="min-w-0">
+          <p className="font-semibold text-foreground truncate">
+            {r.customer_name || 'Guest'}
+          </p>
+          {r.customer_phone && (
+            <p className="text-xs text-muted-foreground mt-0.5">{r.customer_phone}</p>
+          )}
+        </div>
+        <Badge
+          variant={style.variant}
+          className="shrink-0 gap-1 text-xs"
+        >
+          <span className={`inline-block w-1.5 h-1.5 rounded-full ${style.dot}`} />
+          {style.label}
+        </Badge>
+      </div>
+
+      {/* Detail row */}
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground mb-3">
+        <span className="flex items-center gap-1">
+          <Clock className={`h-3.5 w-3.5 ${isPastDue ? 'text-destructive' : ''}`} />
+          <span className={isPastDue ? 'text-destructive font-medium' : ''}>
+            {formatReservationTime(r.reserved_for)}
+          </span>
+        </span>
+        <span className="flex items-center gap-1">
+          <Users className="h-3.5 w-3.5" />
+          Party of {r.party_size}
+        </span>
+        {tableName && (
+          <span className="flex items-center gap-1">
+            <UtensilsCrossed className="h-3.5 w-3.5" />
+            Table {tableName}
+          </span>
+        )}
+        {r.special_requests && (
+          <span className="flex items-center gap-1 max-w-xs truncate">
+            <StickyNote className="h-3.5 w-3.5 shrink-0" />
+            {r.special_requests}
+          </span>
+        )}
+      </div>
+
+      {/* Action buttons or spinner */}
+      {isUpdating ? (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          Updating…
+        </div>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          {r.status === 'pending' && (
+            <>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 text-xs"
+                onClick={() => onUpdateStatus(r, 'confirmed')}
+              >
+                <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
+                Confirm
+              </Button>
+              <Button
+                size="sm"
+                className="h-8 text-xs"
+                onClick={() => onUpdateStatus(r, 'seated')}
+              >
+                Seat now
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 text-xs text-muted-foreground"
+                onClick={() => onUpdateStatus(r, 'cancelled')}
+              >
+                <XCircle className="h-3.5 w-3.5 mr-1" />
+                Cancel
+              </Button>
+            </>
+          )}
+          {r.status === 'confirmed' && (
+            <>
+              <Button
+                size="sm"
+                className="h-8 text-xs"
+                onClick={() => onUpdateStatus(r, 'seated')}
+              >
+                Seat now
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 text-xs"
+                onClick={() => onUpdateStatus(r, 'no_show')}
+              >
+                No show
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 text-xs text-muted-foreground"
+                onClick={() => onUpdateStatus(r, 'cancelled')}
+              >
+                Cancel
+              </Button>
+            </>
+          )}
+          {r.status === 'seated' && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 text-xs"
+              onClick={() => onUpdateStatus(r, 'completed')}
+            >
+              <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
+              Mark complete
+            </Button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

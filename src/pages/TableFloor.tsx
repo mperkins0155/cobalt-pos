@@ -7,13 +7,13 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { FilterPills, EmptyState } from '@/components/pos';
 import { TableService } from '@/services/tables';
+import { ReservationService } from '@/services/reservations';
 import { toast } from '@/components/ui/sonner';
-import { Grid3X3, Users } from 'lucide-react';
+import { Grid3X3, Users, Clock } from 'lucide-react';
 import type { DiningTable, Floor, TableStatus } from '@/types/database';
 
 /** Status color config matching prototype */
@@ -32,21 +32,34 @@ export default function TableFloor() {
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [selectedFloor, setSelectedFloor] = useState('all');
+  /** tableId → formatted reservation time string (for reserved tables) */
+  const [reservationTimes, setReservationTimes] = useState<Map<string, string>>(new Map());
 
   const loadData = async () => {
     if (!organization) return;
     setLoading(true);
     try {
-      const [floorsRes, tablesRes] = await Promise.all([
+      const [floorsRes, tablesRes, upcomingRes] = await Promise.all([
         TableService.listFloors(organization.id, currentLocation?.id),
         TableService.listTables({
           orgId: organization.id,
           locationId: currentLocation?.id,
           includeInactive: false,
         }),
+        ReservationService.listUpcoming(organization.id, currentLocation?.id, 50),
       ]);
       setFloors(floorsRes);
       setTables(tablesRes);
+
+      // Build tableId → time badge map from upcoming reservations
+      const timeMap = new Map<string, string>();
+      for (const r of upcomingRes) {
+        if (r.table_id && !timeMap.has(r.table_id)) {
+          const d = new Date(r.reserved_for);
+          timeMap.set(r.table_id, d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+        }
+      }
+      setReservationTimes(timeMap);
     } catch (err) {
       console.error(err);
       toast.error('Failed to load tables');
@@ -157,6 +170,7 @@ export default function TableFloor() {
           {visible.map((table) => {
             const cfg = STATUS_CONFIG[table.status] || STATUS_CONFIG.available;
             const isUpdating = updatingId === table.id;
+            const reservationTime = reservationTimes.get(table.id);
             return (
               <button
                 key={table.id}
@@ -181,6 +195,13 @@ export default function TableFloor() {
                   <Users className="h-3 w-3" />
                   <span>{table.capacity} seats</span>
                 </div>
+                {/* Reservation time badge — shown when table is reserved */}
+                {reservationTime && table.status === 'reserved' && (
+                  <div className="flex items-center gap-1 mt-1.5 text-[11px] text-primary font-medium">
+                    <Clock className="h-3 w-3" />
+                    {reservationTime}
+                  </div>
+                )}
                 {/* Chair dots visual */}
                 <div className="flex gap-1 mt-2.5">
                   {Array.from({ length: Math.min(table.capacity, 8) }).map((_, i) => (
