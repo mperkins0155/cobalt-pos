@@ -13,6 +13,7 @@ const AuthCallback = lazy(() => import('@/pages/AuthCallback'));
 const Onboarding = lazy(() => import('@/pages/Onboarding'));
 const Dashboard = lazy(() => import('@/pages/Dashboard'));
 const POS = lazy(() => import('@/pages/POS'));
+const CreateOrder = lazy(() => import('@/pages/CreateOrder'));
 const Checkout = lazy(() => import('@/pages/Checkout'));
 const Receipt = lazy(() => import('@/pages/Receipt'));
 const Tickets = lazy(() => import('@/pages/Tickets'));
@@ -103,6 +104,7 @@ function AppRoutes() {
 
               {/* POS */}
               <Route path="/pos" element={<ErrorBoundary section="POS"><POS /></ErrorBoundary>} />
+              <Route path="/orders/new" element={<ErrorBoundary section="Create Order"><CreateOrder /></ErrorBoundary>} />
               <Route path="/pos/checkout" element={<ErrorBoundary section="Checkout"><Checkout /></ErrorBoundary>} />
               <Route path="/pos/receipt/:orderId" element={<ErrorBoundary section="Receipt"><Receipt /></ErrorBoundary>} />
               <Route path="/pos/tickets" element={<ErrorBoundary section="Kitchen Display"><Tickets /></ErrorBoundary>} />
