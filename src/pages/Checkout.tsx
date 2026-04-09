@@ -8,7 +8,7 @@
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { useCart } from '@/hooks/useCart';
+import { useSharedCart } from '@/contexts/CartContext';
 import { useAuditLog } from '@/hooks/useAuditLog';
 import { OrderService } from '@/services/orders';
 import { PaymentService } from '@/services/payments';
@@ -27,8 +27,8 @@ type PayMethod = 'cash' | 'card' | 'other';
 
 export default function Checkout() {
   const navigate = useNavigate();
-  const { organization, profile, currentLocation, tipSettings, defaultTaxRate } = useAuth();
-  const cart = useCart({ defaultTaxRate: defaultTaxRate?.rate || 0 });
+  const { organization, profile, currentLocation, tipSettings } = useAuth();
+  const cart = useSharedCart();
   const { log } = useAuditLog();
 
   const [payMethod, setPayMethod] = useState<PayMethod>('cash');

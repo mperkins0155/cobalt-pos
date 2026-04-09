@@ -250,6 +250,7 @@ export function useCart(options: UseCartOptions = {}) {
 
     // Customer
     attachCustomer, detachCustomer,
+    setCustomerNameOnly: setCustomerName,
 
     // Order type
     setOrderType,

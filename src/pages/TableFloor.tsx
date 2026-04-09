@@ -271,6 +271,18 @@ export default function TableFloor() {
               <Package className="h-3.5 w-3.5 mr-1.5" />
               Detail Table
             </Button>
+
+            {selectedTable?.status === 'occupied' && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="whitespace-nowrap"
+                onClick={() => setChangeTableOpen(true)}
+              >
+                <ArrowRight className="h-3.5 w-3.5 mr-1.5" />
+                <span className="hidden pos-tablet:inline">Change Table</span>
+              </Button>
+            )}
           </div>
         </div>
       )}

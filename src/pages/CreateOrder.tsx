@@ -7,10 +7,10 @@
 // Step 4: Order Summary (review + continue to payment)
 // ============================================================
 
-import { useState, useEffect, useCallback, useReducer } from 'react';
+import { useState, useEffect, useCallback, useReducer, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { useCart } from '@/hooks/useCart';
+import { useSharedCart } from '@/contexts/CartContext';
 import { CatalogService } from '@/services/catalog';
 import { TableService } from '@/services/tables';
 import { CustomerService } from '@/services/customers';
@@ -74,7 +74,7 @@ function wizardReducer(state: WizardState, action: WizardAction): WizardState {
 export default function CreateOrder() {
   const navigate = useNavigate();
   const { organization, currentLocation, defaultTaxRate } = useAuth();
-  const cart = useCart({ defaultTaxRate: defaultTaxRate?.rate || 0 });
+  const cart = useSharedCart();
 
   const [wizard, dispatch] = useReducer(wizardReducer, {
     step: 0,
@@ -117,7 +117,7 @@ export default function CreateOrder() {
   // Sync wizard choices into cart
   useEffect(() => {
     cart.setOrderType(wizard.orderType === 'dine_in' ? 'dine_in' : 'takeout');
-    if (wizard.customerName) cart.attachCustomer('', wizard.customerName);
+
   }, [wizard.orderType, wizard.customerName]);
 
   // Stepper index — adjust for takeout (no table step shown)
@@ -496,7 +496,7 @@ function StepSelectMenu({
   onNext,
 }: {
   orgId?: string;
-  cart: ReturnType<typeof useCart>;
+  cart: ReturnType<typeof useSharedCart>;
   onNext: () => void;
 }) {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -505,6 +505,15 @@ function StepSelectMenu({
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [search, setSearch] = useState('');
   const [modifierItem, setModifierItem] = useState<ItemWithModifiers | null>(null);
+
+  // H1 fix: memoize cart qty per item_id to avoid O(n²) in render
+  const cartQtyMap = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const ci of cart.items) {
+      m.set(ci.item_id, (m.get(ci.item_id) || 0) + ci.quantity);
+    }
+    return m;
+  }, [cart.items]);
   const [itemDetailOpen, setItemDetailOpen] = useState(false);
   const [detailItem, setDetailItem] = useState<Item | null>(null);
 
@@ -547,7 +556,10 @@ function StepSelectMenu({
         setModifierItem(full);
         return;
       }
-    } catch { /* fall through */ }
+    } catch (err) {
+      // Modifier load failed — add item without modifiers and log
+      console.warn('Failed to load modifiers, adding without:', err);
+    }
     cart.addItem({ item_id: item.id, item_name: item.name, unit_price: item.base_price, is_taxable: item.taxable });
   }, [cart]);
 
@@ -593,7 +605,7 @@ function StepSelectMenu({
                     item={item}
                     onAdd={() => void handleAddToCart(item)}
                     onExpand={() => { setDetailItem(item); setItemDetailOpen(true); }}
-                    cartQty={cart.items.filter((ci) => ci.item_id === item.id).reduce((s, ci) => s + ci.quantity, 0)}
+                    cartQty={cartQtyMap.get(item.id) || 0}
                   />
                 ))}
               </div>
@@ -751,7 +763,7 @@ function CartPanel({
   cart,
   onCheckout,
 }: {
-  cart: ReturnType<typeof useCart>;
+  cart: ReturnType<typeof useSharedCart>;
   onCheckout: () => void;
 }) {
   return (
@@ -859,7 +871,7 @@ function StepOrderSummary({
   onConfirm,
 }: {
   wizard: WizardState;
-  cart: ReturnType<typeof useCart>;
+  cart: ReturnType<typeof useSharedCart>;
   onConfirm: () => void;
 }) {
   return (

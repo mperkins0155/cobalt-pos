@@ -9,7 +9,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { useCart } from '@/hooks/useCart';
+import { useSharedCart } from '@/contexts/CartContext';
 import { CatalogService } from '@/services/catalog';
 import { formatCurrency } from '@/lib/calculations';
 import type { CartItemModifier } from '@/types/cart';
@@ -34,7 +34,7 @@ type ItemWithModifiers = Item & { modifier_groups: ModifierGroupWithOptions[] };
 export default function POS() {
   const navigate = useNavigate();
   const { organization, defaultTaxRate } = useAuth();
-  const cart = useCart({ defaultTaxRate: defaultTaxRate?.rate || 0 });
+  const cart = useSharedCart();
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [items, setItems] = useState<Item[]>([]);
