@@ -117,7 +117,8 @@ export default function CreateOrder() {
   // Sync wizard choices into cart
   useEffect(() => {
     cart.setOrderType(wizard.orderType === 'dine_in' ? 'dine_in' : 'takeout');
-
+    // Sync customer name so Checkout shows it and it's stored on the order
+    cart.setCustomerNameOnly(wizard.customerName || undefined);
   }, [wizard.orderType, wizard.customerName]);
 
   // Stepper index — adjust for takeout (no table step shown)
