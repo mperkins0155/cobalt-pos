@@ -99,3 +99,25 @@ All V1 pages built, audited, and deployed. Full 24-technique audit passed.
 - **Tests:** 41/41 passing
 - **TypeScript:** 0 errors
 - **Build:** clean
+
+---
+
+## V0.9.6.0 — Bug Fixes (April 10, 2026)
+
+### Three bugs found in post-deploy audit and fixed:
+
+**FIXED 1 — Cart tax rate was always 0**
+`CartContext.tsx`: `useState(defaultTaxRate)` fired once at mount while auth was still loading (defaultTaxRate = null). Added `useEffect` to call `cart.setTaxRate(defaultTaxRate.rate)` once auth resolves. Every order now calculates tax correctly at 8.25%.
+
+**FIXED 2 — Customer name never reached the cart from CreateOrder**
+`CreateOrder.tsx` line 118: `useEffect` had `wizard.customerName` in deps but never called `cart.setCustomerNameOnly()`. Added the call. Customer names now write to orders in the DB.
+
+**FIXED 3 — Duplicate RLS policies on 4 tables**
+Phase 11 additions created `_delete/_update` policies without dropping the original `_del/_upd` variants from `001_core_schema.sql`. Dropped duplicates from `items`, `pos_categories`, `pos_orders`, `order_lines`. Each table now has exactly one policy per operation.
+
+### Current state after V0.9.6.0:
+- TypeScript: 0 errors
+- Build: clean
+- Tests: 41/41 passing
+- DB: 0 security ERRORs, clean RLS, FK indexes applied
+- Live: https://cobalt-pos.vercel.app
